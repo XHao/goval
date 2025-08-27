@@ -1,0 +1,55 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: 1.22
+
+    - name: Run tests
+      run: go test -v ./...
+
+    - name: Build binaries
+      run: |
+        # Build for multiple platforms
+        GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o goval-linux-amd64 ./test
+        GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o goval-linux-arm64 ./test
+        GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o goval-darwin-amd64 ./test
+        GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o goval-darwin-arm64 ./test
+        GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o goval-windows-amd64.exe ./test
+
+    - name: Generate Release Notes
+      run: |
+        echo "## What's Changed" > release_notes.md
+        git log --pretty=format:"- %s" $(git describe --tags --abbrev=0 HEAD^)..HEAD >> release_notes.md
+        echo "" >> release_notes.md
+        echo "**Full Changelog**: https://github.com/XHao/goval/compare/$(git describe --tags --abbrev=0 HEAD^)...${GITHUB_REF_NAME}" >> release_notes.md
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        body_path: release_notes.md
+        files: |
+          goval-*
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

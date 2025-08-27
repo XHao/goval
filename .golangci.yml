@@ -1,0 +1,68 @@
+# golangci-lint configuration
+# See https://golangci-lint.run/usage/configuration/
+
+run:
+  timeout: 5m
+  issues-exit-code: 1
+  tests: true
+  skip-dirs:
+    - internal/ast  # ANTLR generated files
+  skip-files:
+    - ".*_test.go"  # Skip test files for some linters
+
+output:
+  format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+
+linters-settings:
+  gofmt:
+    simplify: true
+  goimports:
+    local-prefixes: github.com/XHao/goval
+  golint:
+    min-confidence: 0.8
+  govet:
+    check-shadowing: true
+  misspell:
+    locale: US
+  unused:
+    check-exported: false
+
+linters:
+  enable:
+    - gofmt
+    - goimports
+    - golint
+    - govet
+    - ineffassign
+    - misspell
+    - unconvert
+    - unused
+    - deadcode
+    - varcheck
+    - structcheck
+    - errcheck
+    - gosimple
+    - staticcheck
+  disable:
+    - typecheck  # Disable due to ANTLR generated code issues
+
+issues:
+  exclude-rules:
+    # Exclude ANTLR generated files from linting
+    - path: internal/ast/
+      linters:
+        - golint
+        - govet
+        - ineffassign
+        - unused
+        - deadcode
+        - varcheck
+        - structcheck
+    # Exclude test files from certain linters
+    - path: _test\.go
+      linters:
+        - golint
+        - unused
+        - deadcode
