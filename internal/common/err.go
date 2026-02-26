@@ -24,11 +24,11 @@ func (e *SyntaxError) Error() string {
 
 // SemanticError represents a semantic error encountered during semantic analysis.
 type SemanticError struct {
-	Msg   string
-	Start int // start token index or position
-	End   int // end token index or position
+	Msg    string
+	Line   int // line number (1-based)
+	Column int // column offset (0-based)
 }
 
 func (e *SemanticError) Error() string {
-	return fmt.Sprintf("semantic error [%d:%d]: %s", e.Start, e.End, e.Msg)
+	return fmt.Sprintf("semantic error at line %d, column %d: %s", e.Line, e.Column, e.Msg)
 }

@@ -607,7 +607,7 @@ func TestSyntaxChecker_StructMethods(t *testing.T) {
 	}
 }
 
-// Test 'this' keyword usage
+// TestSyntaxChecker_ThisKeyword tests 'this' keyword usage
 func TestSyntaxChecker_ThisKeyword(t *testing.T) {
 	checker := NewSyntaxChecker()
 
@@ -632,5 +632,112 @@ func TestSyntaxChecker_ThisKeyword(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.True(t, checker.IsValid(antlr.NewInputStream(tt.input)), "Input: %s", tt.input)
 		})
+	}
+}
+
+// TestSyntaxChecker_NegativeCases tests that invalid inputs are correctly rejected.
+func TestSyntaxChecker_NegativeCases(t *testing.T) {
+	checker := NewSyntaxChecker()
+
+	tests := []struct {
+		name  string
+		input string
+	}{
+		// var must have initializer
+		{"Var Without Initializer", "var x;"},
+
+		// declaration missing identifier
+		{"Declaration Missing Identifier", "int = 5;"},
+
+		// unclosed brace
+		{"Unclosed Brace", "if (true) {"},
+
+		// illegal character caught by lexer
+		{"Illegal Character", "int x = @bad;"},
+
+		// struct missing name
+		{"Struct Missing Name", "struct { int x }"},
+
+		// missing closing parenthesis
+		{"Unclosed Parenthesis", "int a = (1 + 2;"},
+
+		// double operator without operand
+		{"Missing Operand", "int a = 1 + * 2;"},
+
+		// return missing semicolon
+		{"Return Missing Semicolon", "return 1"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.False(t, checker.IsValid(antlr.NewInputStream(tt.input)), "Expected invalid, but passed: %s", tt.input)
+		})
+	}
+}
+
+// TestSyntaxChecker_ExpressionBlockFix verifies that expression blocks with no
+// preceding statements are correctly parsed (regression test for grammar fix).
+func TestSyntaxChecker_ExpressionBlockFix(t *testing.T) {
+	checker := NewSyntaxChecker()
+
+	tests := []struct {
+		name  string
+		input string
+	}{
+		// Pure expression, no preceding statements
+		{"Expression Only Block", "var r = { 1 + 2 };"},
+		// Single identifier
+		{"Identifier Only Block", "var r = { x };"},
+		// Block with statements then expression
+		{"Statements Then Expression", "var r = { var x = 10; var y = 20; x + y };"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.True(t, checker.IsValid(antlr.NewInputStream(tt.input)), "Input: %s", tt.input)
+		})
+	}
+}
+
+// TestSyntaxChecker_CheckString verifies the CheckString convenience method.
+func TestSyntaxChecker_CheckString(t *testing.T) {
+	checker := NewSyntaxChecker()
+
+	tree, err := checker.CheckString("int a = 1 + 2; return a;")
+	assert.NoError(t, err)
+	assert.NotNil(t, tree)
+
+	_, err = checker.CheckString("int a = 1 + ;")
+	assert.Error(t, err)
+}
+
+// TestSyntaxChecker_LexerErrors verifies that lexer-level errors (e.g. illegal
+// characters) are captured rather than silently dropped.
+func TestSyntaxChecker_LexerErrors(t *testing.T) {
+	checker := NewSyntaxChecker()
+
+	// '@' is not a valid token in Goval
+	_, err := checker.Check(antlr.NewInputStream("int x = @bad;"))
+	assert.Error(t, err, "Lexer error for illegal character should be captured")
+}
+
+// TestSyntaxChecker_Concurrent verifies that SyntaxChecker is safe for
+// concurrent use by multiple goroutines.
+func TestSyntaxChecker_Concurrent(t *testing.T) {
+	checker := NewSyntaxChecker()
+
+	const goroutines = 20
+	results := make(chan error, goroutines)
+
+	for i := 0; i < goroutines; i++ {
+		go func() {
+			_, err := checker.CheckString("int a = 1 + 2; return a;")
+			results <- err
+		}()
+	}
+
+	for i := 0; i < goroutines; i++ {
+		err := <-results
+		assert.NoError(t, err, "Concurrent check should not produce errors")
 	}
 }

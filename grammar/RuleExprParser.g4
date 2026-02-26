@@ -182,7 +182,7 @@ block
     ;
 
 expressionBlock
-    : '{' blockStatements expression '}'               // Statements + last expression as return value
+    : '{' blockStatement* expression '}'               // Zero or more statements + last expression as return value
     ;
 
 blockStatements
