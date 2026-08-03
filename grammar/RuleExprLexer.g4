@@ -118,9 +118,6 @@ ARROW    : '->';
 LSHIFT   : '<<';
 RSHIFT   : '>>';
 
-// 占位符变量（规则引擎上下文占位）
-PLACEHOLDER_VAR : '#' Identifier '#' ;
-
 // Identifiers
 Identifier: IdentifierStart IdentifierPart*;
 

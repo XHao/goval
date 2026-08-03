@@ -38,7 +38,7 @@ blockStatement
     ;
 
 localVariableDeclarationStatement
-    : localVariableDeclaration SEMI
+    : localVariableDeclaration SEMI?
     ;
 
 localVariableDeclaration
@@ -69,7 +69,7 @@ statement
     ;
 
 expressionStatement
-    : expression SEMI
+    : expression SEMI?
     ;
 
 // if / else if / else
@@ -83,11 +83,11 @@ forStatement
     ;
 
 breakStatement
-    : BREAK SEMI
+    : BREAK SEMI?
     ;
 
 continueStatement
-    : CONTINUE SEMI
+    : CONTINUE SEMI?
     ;
 
 // ============================================================================
@@ -208,7 +208,6 @@ postfixExpression
 
 primary
     : literal
-    | PLACEHOLDER_VAR
     | LPAREN expression RPAREN
     | Identifier
     | listLiteral
