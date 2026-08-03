@@ -201,11 +201,21 @@ func (c *compiler) compileConditionalOr(ctx *ast.ConditionalOrExpressionContext)
 		if err != nil {
 			return nil, err
 		}
+		tok := ctx.GetStart()
+		line, col := tok.GetLine(), tok.GetColumn()
 		return func(env *Env) Value {
-			if leftFn(env).b {
+			l := leftFn(env)
+			if !l.IsBool() {
+				panic(evalErrorf(line, col, "|| requires bool, got %s", kindName(l)))
+			}
+			if l.b {
 				return BoolValue(true)
 			}
-			return BoolValue(rightFn(env).b)
+			r := rightFn(env)
+			if !r.IsBool() {
+				panic(evalErrorf(line, col, "|| requires bool, got %s", kindName(r)))
+			}
+			return BoolValue(r.b)
 		}, nil
 	}
 	return c.compileConditionalAnd(ctx.ConditionalAndExpression().(*ast.ConditionalAndExpressionContext))
@@ -222,11 +232,21 @@ func (c *compiler) compileConditionalAnd(ctx *ast.ConditionalAndExpressionContex
 		if err != nil {
 			return nil, err
 		}
+		tok := ctx.GetStart()
+		line, col := tok.GetLine(), tok.GetColumn()
 		return func(env *Env) Value {
-			if !leftFn(env).b {
+			l := leftFn(env)
+			if !l.IsBool() {
+				panic(evalErrorf(line, col, "&& requires bool, got %s", kindName(l)))
+			}
+			if !l.b {
 				return BoolValue(false)
 			}
-			return BoolValue(rightFn(env).b)
+			r := rightFn(env)
+			if !r.IsBool() {
+				panic(evalErrorf(line, col, "&& requires bool, got %s", kindName(r)))
+			}
+			return BoolValue(r.b)
 		}, nil
 	}
 	return c.compileInclusiveOr(ctx.InclusiveOrExpression().(*ast.InclusiveOrExpressionContext))
@@ -453,19 +473,21 @@ func (c *compiler) compileUnary(ctx *ast.UnaryExpressionContext) (func(*Env) Val
 			return nil, err
 		}
 		isBang := un.BANG() != nil
+		tok := un.GetStart()
+		line, col := tok.GetLine(), tok.GetColumn()
 		return func(env *Env) Value {
 			v := innerFn(env)
 			if isBang {
 				if v.IsBool() {
 					return BoolValue(!v.b)
 				}
-				panic(evalErrorf(0, 0, "! requires bool operand, got %s", kindName(v)))
+				panic(evalErrorf(line, col, "! requires bool operand, got %s", kindName(v)))
 			}
 			// ~: bitwise NOT
 			if v.IsInt() {
 				return IntValue(^v.i)
 			}
-			panic(evalErrorf(0, 0, "~ requires int operand, got %s", kindName(v)))
+			panic(evalErrorf(line, col, "~ requires int operand, got %s", kindName(v)))
 		}, nil
 	}
 	return c.compilePostfix(un.PostfixExpression().(*ast.PostfixExpressionContext))
@@ -590,7 +612,40 @@ func (c *compiler) compilePrimary(ctx *ast.PrimaryContext) (func(*Env) Value, er
 	if ctx.MapLiteral() != nil {
 		return c.compileMapLiteral(ctx.MapLiteral().(*ast.MapLiteralContext))
 	}
+	if ctx.ExpressionBlock() != nil {
+		return c.compileExpressionBlock(ctx.ExpressionBlock().(*ast.ExpressionBlockContext))
+	}
 	return nil, &CompileError{Msg: "unsupported primary"}
+}
+
+// compileExpressionBlock 编译顶层块表达式 { blockStatement* expression }。
+// 块表达式在新的作用域编译，运行时用 NewEnv 创建 blockEnv，
+// var 声明写入 blockEnv，尾表达式在 blockEnv 上求值。
+func (c *compiler) compileExpressionBlock(ctx *ast.ExpressionBlockContext) (func(*Env) Value, error) {
+	c.pushScope()
+	var stmtFns []func(*Env) Value
+	for _, bs := range ctx.AllBlockStatement() {
+		fn, err := c.compileBlockStatement(bs)
+		if err != nil {
+			c.popScope()
+			return nil, err
+		}
+		if fn != nil {
+			stmtFns = append(stmtFns, fn)
+		}
+	}
+	exprFn, err := c.compileExpression(ctx.Expression())
+	c.popScope()
+	if err != nil {
+		return nil, err
+	}
+	return func(env *Env) Value {
+		blockEnv := NewEnv(env)
+		for _, fn := range stmtFns {
+			fn(blockEnv)
+		}
+		return exprFn(blockEnv)
+	}, nil
 }
 
 func (c *compiler) compileListLiteral(ctx *ast.ListLiteralContext) (func(*Env) Value, error) {
@@ -640,10 +695,15 @@ func (c *compiler) compileMapLiteral(ctx *ast.MapLiteralContext) (func(*Env) Val
 			valFns = append(valFns, vFn)
 		}
 	}
+	tok := ctx.GetStart()
+	line, col := tok.GetLine(), tok.GetColumn()
 	return func(env *Env) Value {
 		m := make(map[string]Value)
 		for i := range keyFns {
 			k := keyFns[i](env)
+			if !k.IsString() {
+				panic(evalErrorf(line, col, "map key must be string, got %s", kindName(k)))
+			}
 			m[k.s] = valFns[i](env)
 		}
 		return MapValue(m)

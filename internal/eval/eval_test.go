@@ -1,6 +1,7 @@
 package eval
 
 import (
+	"fmt"
 	"strconv"
 	"testing"
 
@@ -373,4 +374,59 @@ func TestBuiltin_Range(t *testing.T) {
 	assert.Equal(t, 3, len(v.list))
 	assert.Equal(t, int64(1), v.list[0].i)
 	assert.Equal(t, int64(3), v.list[2].i)
+}
+
+// catchEvalPanic runs fn and converts any panic (EvalError or other) into an error.
+func catchEvalPanic(fn func(*Env) Value) (v Value, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			if ee, ok := r.(*EvalError); ok {
+				err = ee
+			} else {
+				err = fmt.Errorf("%v", r)
+			}
+		}
+	}()
+	v = fn(NewRootEnv())
+	return
+}
+
+func TestCompile_ExpressionBlock(t *testing.T) {
+	fn, err := CompileString("{ var x = 1; x + 1 }")
+	assert.NoError(t, err)
+	v := Run(fn, NewRootEnv())
+	assert.Equal(t, int64(2), v.i)
+}
+
+func TestCompile_ExpressionBlockNested(t *testing.T) {
+	// 块表达式作为子表达式
+	fn, err := CompileString("var r = { var t = 5; t * 2 }; r")
+	assert.NoError(t, err)
+	v := Run(fn, NewRootEnv())
+	assert.Equal(t, int64(10), v.i)
+}
+
+func TestCompile_LogicTypeCheck(t *testing.T) {
+	// 非 bool 操作数应报错
+	fn, err := CompileString("1 || 2")
+	assert.NoError(t, err) // 编译期不报错（类型在运行时）
+	_, err = catchEvalPanic(fn)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "bool")
+}
+
+func TestCompile_LogicTypeCheckAnd(t *testing.T) {
+	fn, _ := CompileString("\"a\" && true")
+	_, err := catchEvalPanic(fn)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "bool")
+}
+
+func TestCompile_MapKeyNonString(t *testing.T) {
+	// 非字符串 key（如数字）应报错
+	fn, err := CompileString("{1: \"a\"}")
+	assert.NoError(t, err)
+	_, err = catchEvalPanic(fn)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "string")
 }
