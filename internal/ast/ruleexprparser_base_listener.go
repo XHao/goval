@@ -26,140 +26,31 @@ func (s *BaseRuleExprParserListener) EnterProgram(ctx *ProgramContext) {}
 // ExitProgram is called when production program is exited.
 func (s *BaseRuleExprParserListener) ExitProgram(ctx *ProgramContext) {}
 
-// EnterStructDeclaration is called when production structDeclaration is entered.
-func (s *BaseRuleExprParserListener) EnterStructDeclaration(ctx *StructDeclarationContext) {}
+// EnterBlock is called when production block is entered.
+func (s *BaseRuleExprParserListener) EnterBlock(ctx *BlockContext) {}
 
-// ExitStructDeclaration is called when production structDeclaration is exited.
-func (s *BaseRuleExprParserListener) ExitStructDeclaration(ctx *StructDeclarationContext) {}
+// ExitBlock is called when production block is exited.
+func (s *BaseRuleExprParserListener) ExitBlock(ctx *BlockContext) {}
 
-// EnterStructMemberList is called when production structMemberList is entered.
-func (s *BaseRuleExprParserListener) EnterStructMemberList(ctx *StructMemberListContext) {}
+// EnterBlockStatements is called when production blockStatements is entered.
+func (s *BaseRuleExprParserListener) EnterBlockStatements(ctx *BlockStatementsContext) {}
 
-// ExitStructMemberList is called when production structMemberList is exited.
-func (s *BaseRuleExprParserListener) ExitStructMemberList(ctx *StructMemberListContext) {}
+// ExitBlockStatements is called when production blockStatements is exited.
+func (s *BaseRuleExprParserListener) ExitBlockStatements(ctx *BlockStatementsContext) {}
 
-// EnterStructMember is called when production structMember is entered.
-func (s *BaseRuleExprParserListener) EnterStructMember(ctx *StructMemberContext) {}
+// EnterBlockStatement is called when production blockStatement is entered.
+func (s *BaseRuleExprParserListener) EnterBlockStatement(ctx *BlockStatementContext) {}
 
-// ExitStructMember is called when production structMember is exited.
-func (s *BaseRuleExprParserListener) ExitStructMember(ctx *StructMemberContext) {}
+// ExitBlockStatement is called when production blockStatement is exited.
+func (s *BaseRuleExprParserListener) ExitBlockStatement(ctx *BlockStatementContext) {}
 
-// EnterStructField is called when production structField is entered.
-func (s *BaseRuleExprParserListener) EnterStructField(ctx *StructFieldContext) {}
-
-// ExitStructField is called when production structField is exited.
-func (s *BaseRuleExprParserListener) ExitStructField(ctx *StructFieldContext) {}
-
-// EnterStructMethod is called when production structMethod is entered.
-func (s *BaseRuleExprParserListener) EnterStructMethod(ctx *StructMethodContext) {}
-
-// ExitStructMethod is called when production structMethod is exited.
-func (s *BaseRuleExprParserListener) ExitStructMethod(ctx *StructMethodContext) {}
-
-// EnterMethodParameterList is called when production methodParameterList is entered.
-func (s *BaseRuleExprParserListener) EnterMethodParameterList(ctx *MethodParameterListContext) {}
-
-// ExitMethodParameterList is called when production methodParameterList is exited.
-func (s *BaseRuleExprParserListener) ExitMethodParameterList(ctx *MethodParameterListContext) {}
-
-// EnterMethodParameter is called when production methodParameter is entered.
-func (s *BaseRuleExprParserListener) EnterMethodParameter(ctx *MethodParameterContext) {}
-
-// ExitMethodParameter is called when production methodParameter is exited.
-func (s *BaseRuleExprParserListener) ExitMethodParameter(ctx *MethodParameterContext) {}
-
-// EnterMethodBody is called when production methodBody is entered.
-func (s *BaseRuleExprParserListener) EnterMethodBody(ctx *MethodBodyContext) {}
-
-// ExitMethodBody is called when production methodBody is exited.
-func (s *BaseRuleExprParserListener) ExitMethodBody(ctx *MethodBodyContext) {}
-
-// EnterLiteral is called when production literal is entered.
-func (s *BaseRuleExprParserListener) EnterLiteral(ctx *LiteralContext) {}
-
-// ExitLiteral is called when production literal is exited.
-func (s *BaseRuleExprParserListener) ExitLiteral(ctx *LiteralContext) {}
-
-// EnterPrimitiveType is called when production primitiveType is entered.
-func (s *BaseRuleExprParserListener) EnterPrimitiveType(ctx *PrimitiveTypeContext) {}
-
-// ExitPrimitiveType is called when production primitiveType is exited.
-func (s *BaseRuleExprParserListener) ExitPrimitiveType(ctx *PrimitiveTypeContext) {}
-
-// EnterType is called when production type is entered.
-func (s *BaseRuleExprParserListener) EnterType(ctx *TypeContext) {}
-
-// ExitType is called when production type is exited.
-func (s *BaseRuleExprParserListener) ExitType(ctx *TypeContext) {}
-
-// EnterParamType is called when production paramType is entered.
-func (s *BaseRuleExprParserListener) EnterParamType(ctx *ParamTypeContext) {}
-
-// ExitParamType is called when production paramType is exited.
-func (s *BaseRuleExprParserListener) ExitParamType(ctx *ParamTypeContext) {}
-
-// EnterDims is called when production dims is entered.
-func (s *BaseRuleExprParserListener) EnterDims(ctx *DimsContext) {}
-
-// ExitDims is called when production dims is exited.
-func (s *BaseRuleExprParserListener) ExitDims(ctx *DimsContext) {}
-
-// EnterFunctionType is called when production functionType is entered.
-func (s *BaseRuleExprParserListener) EnterFunctionType(ctx *FunctionTypeContext) {}
-
-// ExitFunctionType is called when production functionType is exited.
-func (s *BaseRuleExprParserListener) ExitFunctionType(ctx *FunctionTypeContext) {}
-
-// EnterFunctionParameter is called when production functionParameter is entered.
-func (s *BaseRuleExprParserListener) EnterFunctionParameter(ctx *FunctionParameterContext) {}
-
-// ExitFunctionParameter is called when production functionParameter is exited.
-func (s *BaseRuleExprParserListener) ExitFunctionParameter(ctx *FunctionParameterContext) {}
-
-// EnterContainerType is called when production containerType is entered.
-func (s *BaseRuleExprParserListener) EnterContainerType(ctx *ContainerTypeContext) {}
-
-// ExitContainerType is called when production containerType is exited.
-func (s *BaseRuleExprParserListener) ExitContainerType(ctx *ContainerTypeContext) {}
-
-// EnterArrayInitializer is called when production arrayInitializer is entered.
-func (s *BaseRuleExprParserListener) EnterArrayInitializer(ctx *ArrayInitializerContext) {}
-
-// ExitArrayInitializer is called when production arrayInitializer is exited.
-func (s *BaseRuleExprParserListener) ExitArrayInitializer(ctx *ArrayInitializerContext) {}
-
-// EnterVariableInitializerList is called when production variableInitializerList is entered.
-func (s *BaseRuleExprParserListener) EnterVariableInitializerList(ctx *VariableInitializerListContext) {
+// EnterLocalVariableDeclarationStatement is called when production localVariableDeclarationStatement is entered.
+func (s *BaseRuleExprParserListener) EnterLocalVariableDeclarationStatement(ctx *LocalVariableDeclarationStatementContext) {
 }
 
-// ExitVariableInitializerList is called when production variableInitializerList is exited.
-func (s *BaseRuleExprParserListener) ExitVariableInitializerList(ctx *VariableInitializerListContext) {
+// ExitLocalVariableDeclarationStatement is called when production localVariableDeclarationStatement is exited.
+func (s *BaseRuleExprParserListener) ExitLocalVariableDeclarationStatement(ctx *LocalVariableDeclarationStatementContext) {
 }
-
-// EnterVariableDeclaratorList is called when production variableDeclaratorList is entered.
-func (s *BaseRuleExprParserListener) EnterVariableDeclaratorList(ctx *VariableDeclaratorListContext) {
-}
-
-// ExitVariableDeclaratorList is called when production variableDeclaratorList is exited.
-func (s *BaseRuleExprParserListener) ExitVariableDeclaratorList(ctx *VariableDeclaratorListContext) {}
-
-// EnterVariableDeclarator is called when production variableDeclarator is entered.
-func (s *BaseRuleExprParserListener) EnterVariableDeclarator(ctx *VariableDeclaratorContext) {}
-
-// ExitVariableDeclarator is called when production variableDeclarator is exited.
-func (s *BaseRuleExprParserListener) ExitVariableDeclarator(ctx *VariableDeclaratorContext) {}
-
-// EnterVariableDeclaratorId is called when production variableDeclaratorId is entered.
-func (s *BaseRuleExprParserListener) EnterVariableDeclaratorId(ctx *VariableDeclaratorIdContext) {}
-
-// ExitVariableDeclaratorId is called when production variableDeclaratorId is exited.
-func (s *BaseRuleExprParserListener) ExitVariableDeclaratorId(ctx *VariableDeclaratorIdContext) {}
-
-// EnterVariableInitializer is called when production variableInitializer is entered.
-func (s *BaseRuleExprParserListener) EnterVariableInitializer(ctx *VariableInitializerContext) {}
-
-// ExitVariableInitializer is called when production variableInitializer is exited.
-func (s *BaseRuleExprParserListener) ExitVariableInitializer(ctx *VariableInitializerContext) {}
 
 // EnterLocalVariableDeclaration is called when production localVariableDeclaration is entered.
 func (s *BaseRuleExprParserListener) EnterLocalVariableDeclaration(ctx *LocalVariableDeclarationContext) {
@@ -183,37 +74,11 @@ func (s *BaseRuleExprParserListener) EnterVarVariableDeclarator(ctx *VarVariable
 // ExitVarVariableDeclarator is called when production varVariableDeclarator is exited.
 func (s *BaseRuleExprParserListener) ExitVarVariableDeclarator(ctx *VarVariableDeclaratorContext) {}
 
-// EnterLocalVariableDeclarationStatement is called when production localVariableDeclarationStatement is entered.
-func (s *BaseRuleExprParserListener) EnterLocalVariableDeclarationStatement(ctx *LocalVariableDeclarationStatementContext) {
-}
+// EnterVariableInitializer is called when production variableInitializer is entered.
+func (s *BaseRuleExprParserListener) EnterVariableInitializer(ctx *VariableInitializerContext) {}
 
-// ExitLocalVariableDeclarationStatement is called when production localVariableDeclarationStatement is exited.
-func (s *BaseRuleExprParserListener) ExitLocalVariableDeclarationStatement(ctx *LocalVariableDeclarationStatementContext) {
-}
-
-// EnterBlock is called when production block is entered.
-func (s *BaseRuleExprParserListener) EnterBlock(ctx *BlockContext) {}
-
-// ExitBlock is called when production block is exited.
-func (s *BaseRuleExprParserListener) ExitBlock(ctx *BlockContext) {}
-
-// EnterExpressionBlock is called when production expressionBlock is entered.
-func (s *BaseRuleExprParserListener) EnterExpressionBlock(ctx *ExpressionBlockContext) {}
-
-// ExitExpressionBlock is called when production expressionBlock is exited.
-func (s *BaseRuleExprParserListener) ExitExpressionBlock(ctx *ExpressionBlockContext) {}
-
-// EnterBlockStatements is called when production blockStatements is entered.
-func (s *BaseRuleExprParserListener) EnterBlockStatements(ctx *BlockStatementsContext) {}
-
-// ExitBlockStatements is called when production blockStatements is exited.
-func (s *BaseRuleExprParserListener) ExitBlockStatements(ctx *BlockStatementsContext) {}
-
-// EnterBlockStatement is called when production blockStatement is entered.
-func (s *BaseRuleExprParserListener) EnterBlockStatement(ctx *BlockStatementContext) {}
-
-// ExitBlockStatement is called when production blockStatement is exited.
-func (s *BaseRuleExprParserListener) ExitBlockStatement(ctx *BlockStatementContext) {}
+// ExitVariableInitializer is called when production variableInitializer is exited.
+func (s *BaseRuleExprParserListener) ExitVariableInitializer(ctx *VariableInitializerContext) {}
 
 // EnterStatement is called when production statement is entered.
 func (s *BaseRuleExprParserListener) EnterStatement(ctx *StatementContext) {}
@@ -221,149 +86,23 @@ func (s *BaseRuleExprParserListener) EnterStatement(ctx *StatementContext) {}
 // ExitStatement is called when production statement is exited.
 func (s *BaseRuleExprParserListener) ExitStatement(ctx *StatementContext) {}
 
-// EnterStatementNoShortIf is called when production statementNoShortIf is entered.
-func (s *BaseRuleExprParserListener) EnterStatementNoShortIf(ctx *StatementNoShortIfContext) {}
-
-// ExitStatementNoShortIf is called when production statementNoShortIf is exited.
-func (s *BaseRuleExprParserListener) ExitStatementNoShortIf(ctx *StatementNoShortIfContext) {}
-
-// EnterStatementWithoutTrailingSubstatement is called when production statementWithoutTrailingSubstatement is entered.
-func (s *BaseRuleExprParserListener) EnterStatementWithoutTrailingSubstatement(ctx *StatementWithoutTrailingSubstatementContext) {
-}
-
-// ExitStatementWithoutTrailingSubstatement is called when production statementWithoutTrailingSubstatement is exited.
-func (s *BaseRuleExprParserListener) ExitStatementWithoutTrailingSubstatement(ctx *StatementWithoutTrailingSubstatementContext) {
-}
-
-// EnterEmptyStatement_ is called when production emptyStatement_ is entered.
-func (s *BaseRuleExprParserListener) EnterEmptyStatement_(ctx *EmptyStatement_Context) {}
-
-// ExitEmptyStatement_ is called when production emptyStatement_ is exited.
-func (s *BaseRuleExprParserListener) ExitEmptyStatement_(ctx *EmptyStatement_Context) {}
-
 // EnterExpressionStatement is called when production expressionStatement is entered.
 func (s *BaseRuleExprParserListener) EnterExpressionStatement(ctx *ExpressionStatementContext) {}
 
 // ExitExpressionStatement is called when production expressionStatement is exited.
 func (s *BaseRuleExprParserListener) ExitExpressionStatement(ctx *ExpressionStatementContext) {}
 
-// EnterStatementExpression is called when production statementExpression is entered.
-func (s *BaseRuleExprParserListener) EnterStatementExpression(ctx *StatementExpressionContext) {}
+// EnterIfStatement is called when production ifStatement is entered.
+func (s *BaseRuleExprParserListener) EnterIfStatement(ctx *IfStatementContext) {}
 
-// ExitStatementExpression is called when production statementExpression is exited.
-func (s *BaseRuleExprParserListener) ExitStatementExpression(ctx *StatementExpressionContext) {}
-
-// EnterIfThenStatement is called when production ifThenStatement is entered.
-func (s *BaseRuleExprParserListener) EnterIfThenStatement(ctx *IfThenStatementContext) {}
-
-// ExitIfThenStatement is called when production ifThenStatement is exited.
-func (s *BaseRuleExprParserListener) ExitIfThenStatement(ctx *IfThenStatementContext) {}
-
-// EnterIfThenElseStatement is called when production ifThenElseStatement is entered.
-func (s *BaseRuleExprParserListener) EnterIfThenElseStatement(ctx *IfThenElseStatementContext) {}
-
-// ExitIfThenElseStatement is called when production ifThenElseStatement is exited.
-func (s *BaseRuleExprParserListener) ExitIfThenElseStatement(ctx *IfThenElseStatementContext) {}
-
-// EnterIfThenElseStatementNoShortIf is called when production ifThenElseStatementNoShortIf is entered.
-func (s *BaseRuleExprParserListener) EnterIfThenElseStatementNoShortIf(ctx *IfThenElseStatementNoShortIfContext) {
-}
-
-// ExitIfThenElseStatementNoShortIf is called when production ifThenElseStatementNoShortIf is exited.
-func (s *BaseRuleExprParserListener) ExitIfThenElseStatementNoShortIf(ctx *IfThenElseStatementNoShortIfContext) {
-}
-
-// EnterSwitchStatement is called when production switchStatement is entered.
-func (s *BaseRuleExprParserListener) EnterSwitchStatement(ctx *SwitchStatementContext) {}
-
-// ExitSwitchStatement is called when production switchStatement is exited.
-func (s *BaseRuleExprParserListener) ExitSwitchStatement(ctx *SwitchStatementContext) {}
-
-// EnterSwitchBlock is called when production switchBlock is entered.
-func (s *BaseRuleExprParserListener) EnterSwitchBlock(ctx *SwitchBlockContext) {}
-
-// ExitSwitchBlock is called when production switchBlock is exited.
-func (s *BaseRuleExprParserListener) ExitSwitchBlock(ctx *SwitchBlockContext) {}
-
-// EnterSwitchBlockStatementGroup is called when production switchBlockStatementGroup is entered.
-func (s *BaseRuleExprParserListener) EnterSwitchBlockStatementGroup(ctx *SwitchBlockStatementGroupContext) {
-}
-
-// ExitSwitchBlockStatementGroup is called when production switchBlockStatementGroup is exited.
-func (s *BaseRuleExprParserListener) ExitSwitchBlockStatementGroup(ctx *SwitchBlockStatementGroupContext) {
-}
-
-// EnterSwitchLabels is called when production switchLabels is entered.
-func (s *BaseRuleExprParserListener) EnterSwitchLabels(ctx *SwitchLabelsContext) {}
-
-// ExitSwitchLabels is called when production switchLabels is exited.
-func (s *BaseRuleExprParserListener) ExitSwitchLabels(ctx *SwitchLabelsContext) {}
-
-// EnterSwitchLabel is called when production switchLabel is entered.
-func (s *BaseRuleExprParserListener) EnterSwitchLabel(ctx *SwitchLabelContext) {}
-
-// ExitSwitchLabel is called when production switchLabel is exited.
-func (s *BaseRuleExprParserListener) ExitSwitchLabel(ctx *SwitchLabelContext) {}
+// ExitIfStatement is called when production ifStatement is exited.
+func (s *BaseRuleExprParserListener) ExitIfStatement(ctx *IfStatementContext) {}
 
 // EnterForStatement is called when production forStatement is entered.
 func (s *BaseRuleExprParserListener) EnterForStatement(ctx *ForStatementContext) {}
 
 // ExitForStatement is called when production forStatement is exited.
 func (s *BaseRuleExprParserListener) ExitForStatement(ctx *ForStatementContext) {}
-
-// EnterForStatementNoShortIf is called when production forStatementNoShortIf is entered.
-func (s *BaseRuleExprParserListener) EnterForStatementNoShortIf(ctx *ForStatementNoShortIfContext) {}
-
-// ExitForStatementNoShortIf is called when production forStatementNoShortIf is exited.
-func (s *BaseRuleExprParserListener) ExitForStatementNoShortIf(ctx *ForStatementNoShortIfContext) {}
-
-// EnterBasicForStatement is called when production basicForStatement is entered.
-func (s *BaseRuleExprParserListener) EnterBasicForStatement(ctx *BasicForStatementContext) {}
-
-// ExitBasicForStatement is called when production basicForStatement is exited.
-func (s *BaseRuleExprParserListener) ExitBasicForStatement(ctx *BasicForStatementContext) {}
-
-// EnterBasicForStatementNoShortIf is called when production basicForStatementNoShortIf is entered.
-func (s *BaseRuleExprParserListener) EnterBasicForStatementNoShortIf(ctx *BasicForStatementNoShortIfContext) {
-}
-
-// ExitBasicForStatementNoShortIf is called when production basicForStatementNoShortIf is exited.
-func (s *BaseRuleExprParserListener) ExitBasicForStatementNoShortIf(ctx *BasicForStatementNoShortIfContext) {
-}
-
-// EnterForInit is called when production forInit is entered.
-func (s *BaseRuleExprParserListener) EnterForInit(ctx *ForInitContext) {}
-
-// ExitForInit is called when production forInit is exited.
-func (s *BaseRuleExprParserListener) ExitForInit(ctx *ForInitContext) {}
-
-// EnterForUpdate is called when production forUpdate is entered.
-func (s *BaseRuleExprParserListener) EnterForUpdate(ctx *ForUpdateContext) {}
-
-// ExitForUpdate is called when production forUpdate is exited.
-func (s *BaseRuleExprParserListener) ExitForUpdate(ctx *ForUpdateContext) {}
-
-// EnterStatementExpressionList is called when production statementExpressionList is entered.
-func (s *BaseRuleExprParserListener) EnterStatementExpressionList(ctx *StatementExpressionListContext) {
-}
-
-// ExitStatementExpressionList is called when production statementExpressionList is exited.
-func (s *BaseRuleExprParserListener) ExitStatementExpressionList(ctx *StatementExpressionListContext) {
-}
-
-// EnterEnhancedForStatement is called when production enhancedForStatement is entered.
-func (s *BaseRuleExprParserListener) EnterEnhancedForStatement(ctx *EnhancedForStatementContext) {}
-
-// ExitEnhancedForStatement is called when production enhancedForStatement is exited.
-func (s *BaseRuleExprParserListener) ExitEnhancedForStatement(ctx *EnhancedForStatementContext) {}
-
-// EnterEnhancedForStatementNoShortIf is called when production enhancedForStatementNoShortIf is entered.
-func (s *BaseRuleExprParserListener) EnterEnhancedForStatementNoShortIf(ctx *EnhancedForStatementNoShortIfContext) {
-}
-
-// ExitEnhancedForStatementNoShortIf is called when production enhancedForStatementNoShortIf is exited.
-func (s *BaseRuleExprParserListener) ExitEnhancedForStatementNoShortIf(ctx *EnhancedForStatementNoShortIfContext) {
-}
 
 // EnterBreakStatement is called when production breakStatement is entered.
 func (s *BaseRuleExprParserListener) EnterBreakStatement(ctx *BreakStatementContext) {}
@@ -377,11 +116,11 @@ func (s *BaseRuleExprParserListener) EnterContinueStatement(ctx *ContinueStateme
 // ExitContinueStatement is called when production continueStatement is exited.
 func (s *BaseRuleExprParserListener) ExitContinueStatement(ctx *ContinueStatementContext) {}
 
-// EnterReturnStatement is called when production returnStatement is entered.
-func (s *BaseRuleExprParserListener) EnterReturnStatement(ctx *ReturnStatementContext) {}
+// EnterLiteral is called when production literal is entered.
+func (s *BaseRuleExprParserListener) EnterLiteral(ctx *LiteralContext) {}
 
-// ExitReturnStatement is called when production returnStatement is exited.
-func (s *BaseRuleExprParserListener) ExitReturnStatement(ctx *ReturnStatementContext) {}
+// ExitLiteral is called when production literal is exited.
+func (s *BaseRuleExprParserListener) ExitLiteral(ctx *LiteralContext) {}
 
 // EnterExpression is called when production expression is entered.
 func (s *BaseRuleExprParserListener) EnterExpression(ctx *ExpressionContext) {}
@@ -400,12 +139,6 @@ func (s *BaseRuleExprParserListener) EnterAssignment(ctx *AssignmentContext) {}
 
 // ExitAssignment is called when production assignment is exited.
 func (s *BaseRuleExprParserListener) ExitAssignment(ctx *AssignmentContext) {}
-
-// EnterAssignmentOperator is called when production assignmentOperator is entered.
-func (s *BaseRuleExprParserListener) EnterAssignmentOperator(ctx *AssignmentOperatorContext) {}
-
-// ExitAssignmentOperator is called when production assignmentOperator is exited.
-func (s *BaseRuleExprParserListener) ExitAssignmentOperator(ctx *AssignmentOperatorContext) {}
 
 // EnterConditionalExpression is called when production conditionalExpression is entered.
 func (s *BaseRuleExprParserListener) EnterConditionalExpression(ctx *ConditionalExpressionContext) {}
@@ -485,20 +218,6 @@ func (s *BaseRuleExprParserListener) EnterUnaryExpression(ctx *UnaryExpressionCo
 // ExitUnaryExpression is called when production unaryExpression is exited.
 func (s *BaseRuleExprParserListener) ExitUnaryExpression(ctx *UnaryExpressionContext) {}
 
-// EnterPreIncrementExpression is called when production preIncrementExpression is entered.
-func (s *BaseRuleExprParserListener) EnterPreIncrementExpression(ctx *PreIncrementExpressionContext) {
-}
-
-// ExitPreIncrementExpression is called when production preIncrementExpression is exited.
-func (s *BaseRuleExprParserListener) ExitPreIncrementExpression(ctx *PreIncrementExpressionContext) {}
-
-// EnterPreDecrementExpression is called when production preDecrementExpression is entered.
-func (s *BaseRuleExprParserListener) EnterPreDecrementExpression(ctx *PreDecrementExpressionContext) {
-}
-
-// ExitPreDecrementExpression is called when production preDecrementExpression is exited.
-func (s *BaseRuleExprParserListener) ExitPreDecrementExpression(ctx *PreDecrementExpressionContext) {}
-
 // EnterUnaryExpressionNotPlusMinus is called when production unaryExpressionNotPlusMinus is entered.
 func (s *BaseRuleExprParserListener) EnterUnaryExpressionNotPlusMinus(ctx *UnaryExpressionNotPlusMinusContext) {
 }
@@ -543,12 +262,6 @@ func (s *BaseRuleExprParserListener) EnterFormalParameterList(ctx *FormalParamet
 // ExitFormalParameterList is called when production formalParameterList is exited.
 func (s *BaseRuleExprParserListener) ExitFormalParameterList(ctx *FormalParameterListContext) {}
 
-// EnterFormalParameter is called when production formalParameter is entered.
-func (s *BaseRuleExprParserListener) EnterFormalParameter(ctx *FormalParameterContext) {}
-
-// ExitFormalParameter is called when production formalParameter is exited.
-func (s *BaseRuleExprParserListener) ExitFormalParameter(ctx *FormalParameterContext) {}
-
 // EnterLambdaBody is called when production lambdaBody is entered.
 func (s *BaseRuleExprParserListener) EnterLambdaBody(ctx *LambdaBodyContext) {}
 
@@ -566,12 +279,6 @@ func (s *BaseRuleExprParserListener) EnterMapLiteral(ctx *MapLiteralContext) {}
 
 // ExitMapLiteral is called when production mapLiteral is exited.
 func (s *BaseRuleExprParserListener) ExitMapLiteral(ctx *MapLiteralContext) {}
-
-// EnterSetLiteral is called when production setLiteral is entered.
-func (s *BaseRuleExprParserListener) EnterSetLiteral(ctx *SetLiteralContext) {}
-
-// ExitSetLiteral is called when production setLiteral is exited.
-func (s *BaseRuleExprParserListener) ExitSetLiteral(ctx *SetLiteralContext) {}
 
 // EnterMapEntryList is called when production mapEntryList is entered.
 func (s *BaseRuleExprParserListener) EnterMapEntryList(ctx *MapEntryListContext) {}
@@ -591,23 +298,8 @@ func (s *BaseRuleExprParserListener) EnterExpressionList(ctx *ExpressionListCont
 // ExitExpressionList is called when production expressionList is exited.
 func (s *BaseRuleExprParserListener) ExitExpressionList(ctx *ExpressionListContext) {}
 
-// EnterStructLiteral is called when production structLiteral is entered.
-func (s *BaseRuleExprParserListener) EnterStructLiteral(ctx *StructLiteralContext) {}
+// EnterExpressionBlock is called when production expressionBlock is entered.
+func (s *BaseRuleExprParserListener) EnterExpressionBlock(ctx *ExpressionBlockContext) {}
 
-// ExitStructLiteral is called when production structLiteral is exited.
-func (s *BaseRuleExprParserListener) ExitStructLiteral(ctx *StructLiteralContext) {}
-
-// EnterStructFieldInitializerList is called when production structFieldInitializerList is entered.
-func (s *BaseRuleExprParserListener) EnterStructFieldInitializerList(ctx *StructFieldInitializerListContext) {
-}
-
-// ExitStructFieldInitializerList is called when production structFieldInitializerList is exited.
-func (s *BaseRuleExprParserListener) ExitStructFieldInitializerList(ctx *StructFieldInitializerListContext) {
-}
-
-// EnterStructFieldInitializer is called when production structFieldInitializer is entered.
-func (s *BaseRuleExprParserListener) EnterStructFieldInitializer(ctx *StructFieldInitializerContext) {
-}
-
-// ExitStructFieldInitializer is called when production structFieldInitializer is exited.
-func (s *BaseRuleExprParserListener) ExitStructFieldInitializer(ctx *StructFieldInitializerContext) {}
+// ExitExpressionBlock is called when production expressionBlock is exited.
+func (s *BaseRuleExprParserListener) ExitExpressionBlock(ctx *ExpressionBlockContext) {}

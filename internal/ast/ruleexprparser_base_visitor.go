@@ -11,91 +11,19 @@ func (v *BaseRuleExprParserVisitor) VisitProgram(ctx *ProgramContext) interface{
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseRuleExprParserVisitor) VisitStructDeclaration(ctx *StructDeclarationContext) interface{} {
+func (v *BaseRuleExprParserVisitor) VisitBlock(ctx *BlockContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseRuleExprParserVisitor) VisitStructMemberList(ctx *StructMemberListContext) interface{} {
+func (v *BaseRuleExprParserVisitor) VisitBlockStatements(ctx *BlockStatementsContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseRuleExprParserVisitor) VisitStructMember(ctx *StructMemberContext) interface{} {
+func (v *BaseRuleExprParserVisitor) VisitBlockStatement(ctx *BlockStatementContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseRuleExprParserVisitor) VisitStructField(ctx *StructFieldContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitStructMethod(ctx *StructMethodContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitMethodParameterList(ctx *MethodParameterListContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitMethodParameter(ctx *MethodParameterContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitMethodBody(ctx *MethodBodyContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitLiteral(ctx *LiteralContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitPrimitiveType(ctx *PrimitiveTypeContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitType(ctx *TypeContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitParamType(ctx *ParamTypeContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitDims(ctx *DimsContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitFunctionType(ctx *FunctionTypeContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitFunctionParameter(ctx *FunctionParameterContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitContainerType(ctx *ContainerTypeContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitArrayInitializer(ctx *ArrayInitializerContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitVariableInitializerList(ctx *VariableInitializerListContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitVariableDeclaratorList(ctx *VariableDeclaratorListContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitVariableDeclarator(ctx *VariableDeclaratorContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitVariableDeclaratorId(ctx *VariableDeclaratorIdContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitVariableInitializer(ctx *VariableInitializerContext) interface{} {
+func (v *BaseRuleExprParserVisitor) VisitLocalVariableDeclarationStatement(ctx *LocalVariableDeclarationStatementContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -111,23 +39,7 @@ func (v *BaseRuleExprParserVisitor) VisitVarVariableDeclarator(ctx *VarVariableD
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseRuleExprParserVisitor) VisitLocalVariableDeclarationStatement(ctx *LocalVariableDeclarationStatementContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitBlock(ctx *BlockContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitExpressionBlock(ctx *ExpressionBlockContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitBlockStatements(ctx *BlockStatementsContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitBlockStatement(ctx *BlockStatementContext) interface{} {
+func (v *BaseRuleExprParserVisitor) VisitVariableInitializer(ctx *VariableInitializerContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -135,91 +47,15 @@ func (v *BaseRuleExprParserVisitor) VisitStatement(ctx *StatementContext) interf
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseRuleExprParserVisitor) VisitStatementNoShortIf(ctx *StatementNoShortIfContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitStatementWithoutTrailingSubstatement(ctx *StatementWithoutTrailingSubstatementContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitEmptyStatement_(ctx *EmptyStatement_Context) interface{} {
-	return v.VisitChildren(ctx)
-}
-
 func (v *BaseRuleExprParserVisitor) VisitExpressionStatement(ctx *ExpressionStatementContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseRuleExprParserVisitor) VisitStatementExpression(ctx *StatementExpressionContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitIfThenStatement(ctx *IfThenStatementContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitIfThenElseStatement(ctx *IfThenElseStatementContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitIfThenElseStatementNoShortIf(ctx *IfThenElseStatementNoShortIfContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitSwitchStatement(ctx *SwitchStatementContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitSwitchBlock(ctx *SwitchBlockContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitSwitchBlockStatementGroup(ctx *SwitchBlockStatementGroupContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitSwitchLabels(ctx *SwitchLabelsContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitSwitchLabel(ctx *SwitchLabelContext) interface{} {
+func (v *BaseRuleExprParserVisitor) VisitIfStatement(ctx *IfStatementContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
 func (v *BaseRuleExprParserVisitor) VisitForStatement(ctx *ForStatementContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitForStatementNoShortIf(ctx *ForStatementNoShortIfContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitBasicForStatement(ctx *BasicForStatementContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitBasicForStatementNoShortIf(ctx *BasicForStatementNoShortIfContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitForInit(ctx *ForInitContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitForUpdate(ctx *ForUpdateContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitStatementExpressionList(ctx *StatementExpressionListContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitEnhancedForStatement(ctx *EnhancedForStatementContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitEnhancedForStatementNoShortIf(ctx *EnhancedForStatementNoShortIfContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -231,7 +67,7 @@ func (v *BaseRuleExprParserVisitor) VisitContinueStatement(ctx *ContinueStatemen
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseRuleExprParserVisitor) VisitReturnStatement(ctx *ReturnStatementContext) interface{} {
+func (v *BaseRuleExprParserVisitor) VisitLiteral(ctx *LiteralContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -244,10 +80,6 @@ func (v *BaseRuleExprParserVisitor) VisitAssignmentExpression(ctx *AssignmentExp
 }
 
 func (v *BaseRuleExprParserVisitor) VisitAssignment(ctx *AssignmentContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitAssignmentOperator(ctx *AssignmentOperatorContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -299,14 +131,6 @@ func (v *BaseRuleExprParserVisitor) VisitUnaryExpression(ctx *UnaryExpressionCon
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseRuleExprParserVisitor) VisitPreIncrementExpression(ctx *PreIncrementExpressionContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitPreDecrementExpression(ctx *PreDecrementExpressionContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
 func (v *BaseRuleExprParserVisitor) VisitUnaryExpressionNotPlusMinus(ctx *UnaryExpressionNotPlusMinusContext) interface{} {
 	return v.VisitChildren(ctx)
 }
@@ -335,10 +159,6 @@ func (v *BaseRuleExprParserVisitor) VisitFormalParameterList(ctx *FormalParamete
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseRuleExprParserVisitor) VisitFormalParameter(ctx *FormalParameterContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
 func (v *BaseRuleExprParserVisitor) VisitLambdaBody(ctx *LambdaBodyContext) interface{} {
 	return v.VisitChildren(ctx)
 }
@@ -348,10 +168,6 @@ func (v *BaseRuleExprParserVisitor) VisitListLiteral(ctx *ListLiteralContext) in
 }
 
 func (v *BaseRuleExprParserVisitor) VisitMapLiteral(ctx *MapLiteralContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitSetLiteral(ctx *SetLiteralContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -367,14 +183,6 @@ func (v *BaseRuleExprParserVisitor) VisitExpressionList(ctx *ExpressionListConte
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseRuleExprParserVisitor) VisitStructLiteral(ctx *StructLiteralContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitStructFieldInitializerList(ctx *StructFieldInitializerListContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseRuleExprParserVisitor) VisitStructFieldInitializer(ctx *StructFieldInitializerContext) interface{} {
+func (v *BaseRuleExprParserVisitor) VisitExpressionBlock(ctx *ExpressionBlockContext) interface{} {
 	return v.VisitChildren(ctx)
 }

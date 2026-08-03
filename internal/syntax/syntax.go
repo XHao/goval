@@ -9,7 +9,7 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 )
 
-// SyntaxChecker provides syntax validation functionality.
+// SyntaxChecker provides syntax and semantic validation.
 // It is safe for concurrent use by multiple goroutines.
 type SyntaxChecker struct {
 	mu         sync.Mutex
@@ -21,44 +21,35 @@ func NewSyntaxChecker() *SyntaxChecker {
 	return &SyntaxChecker{}
 }
 
-// CheckString is a convenience wrapper that validates the syntax of a source
-// string and returns the parse tree.
+// CheckString is a convenience wrapper that validates a source string.
 func (c *SyntaxChecker) CheckString(source string) (ast.IProgramContext, error) {
 	return c.Check(antlr.NewInputStream(source))
 }
 
-// Check validates the syntax of the input and returns the parse tree.
+// Check validates syntax and semantics, returning the parse tree.
 func (c *SyntaxChecker) Check(input antlr.CharStream) (ast.IProgramContext, error) {
-	el := &SyntaxErrorListener{}
-
-	lexer := ast.NewRuleExprLexer(input)
-	lexer.RemoveErrorListeners()
-	lexer.AddErrorListener(el)
-
-	stream := antlr.NewCommonTokenStream(lexer, antlr.TokenDefaultChannel)
-	parser := ast.NewRuleExprParser(stream)
-	parser.RemoveErrorListeners()
-	parser.AddErrorListener(el)
-
-	tree := parser.Program()
-
-	c.mu.Lock()
-	c.lastErrors = el.Errors
-	c.mu.Unlock()
-
+	tree, errs := c.parse(input)
+	if errs != nil && len(errs) > 0 {
+		return nil, errs[0]
+	}
 	if tree == nil {
 		return nil, &common.SyntaxError{Line: 0, Column: 0, Message: "failed to parse input: got nil parse tree"}
 	}
-
-	if el.HasErrors() {
-		return nil, el.GetFirstError()
+	// 语义检查
+	if semErr := checkSemantics(tree); semErr != nil {
+		return nil, semErr
 	}
-
 	return tree, nil
 }
 
 // CheckWithAllErrors validates syntax and returns all errors found.
 func (c *SyntaxChecker) CheckWithAllErrors(input antlr.CharStream) (ast.IProgramContext, []*common.SyntaxError) {
+	tree, errs := c.parse(input)
+	return tree, errs
+}
+
+// parse runs lexer + parser, collecting syntax errors.
+func (c *SyntaxChecker) parse(input antlr.CharStream) (ast.IProgramContext, []*common.SyntaxError) {
 	el := &SyntaxErrorListener{}
 
 	lexer := ast.NewRuleExprLexer(input)
@@ -114,12 +105,10 @@ func (l *SyntaxErrorListener) SyntaxError(recognizer antlr.Recognizer, offending
 	})
 }
 
-// HasErrors returns true if any syntax errors were encountered.
 func (l *SyntaxErrorListener) HasErrors() bool {
 	return len(l.Errors) > 0
 }
 
-// GetFirstError returns the first syntax error as an error, or nil if none.
 func (l *SyntaxErrorListener) GetFirstError() error {
 	if len(l.Errors) == 0 {
 		return nil
@@ -127,7 +116,6 @@ func (l *SyntaxErrorListener) GetFirstError() error {
 	return l.Errors[0]
 }
 
-// GetAllErrors returns all collected syntax errors.
 func (l *SyntaxErrorListener) GetAllErrors() []*common.SyntaxError {
 	return l.Errors
 }

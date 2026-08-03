@@ -2,7 +2,9 @@
 
 ## Overview
 
-Goval is a lightweight expression language implemented in Go, designed for embedding in Go applications. It is suitable for scenarios such as rule engines and configuration scripts, and supports two type declaration styles: static typing and type inference (`var`).
+Goval is a lightweight expression language implemented in Go, designed for embedding in Go applications. It targets **rule engine** scenarios: pure-expression evaluation with immutable objects, lambdas, and minimal control flow.
+
+Goval deliberately drops general-purpose scripting features — there are no structs, no `switch`, no `return`, no type annotations, and no mutable container syntax. Custom "types" are expressed as **lambda factories** returning Map literals; all objects and containers are **immutable** once constructed. The only writable targets are local variables (identifiers), used for intermediate results during rule evaluation.
 
 This document describes the syntax rules of the Goval language in detail, including lexical and grammar structures.
 
@@ -13,9 +15,12 @@ This document describes the syntax rules of the Goval language in detail, includ
 Goval defines the following keywords, which cannot be used as identifiers:
 
 ```
-boolean, break, byte, case, char, continue, default, double, else, float, 
-for, if, in, int, List, long, Map, return, Set, short, string, struct, switch, this, var
+break, continue, else, for, if, in, null, var
 ```
+
+plus the boolean literals `true` and `false`.
+
+The following keywords from the legacy grammar have been **removed** and are no longer reserved: `struct`, `this`, `return`, `switch`, `case`, `default`, `Set`, and all primitive type keywords (`boolean`, `byte`, `char`, `short`, `int`, `long`, `float`, `double`, `string`, `List`, `Map`). Types are inferred via `var`; containers use literal syntax only.
 
 ### Literals
 
@@ -46,7 +51,7 @@ Character literals are enclosed in single quotes:
 
 - `'a'`
 - `'\n'` (escape character)
-- `'\u0041'` (Unicode)
+- `'A'` (Unicode)
 
 #### String Literals
 
@@ -58,6 +63,13 @@ String literals are enclosed in double quotes:
 #### Null Literal
 
 - `null`
+
+#### Placeholder Variable
+
+A placeholder variable is written as `#identifier#` and is substituted by the host application before evaluation:
+
+- `#user#`
+- `#order.amount#`
 
 ### Identifiers
 
@@ -75,12 +87,14 @@ Supported character ranges include:
 
 #### Assignment Operators
 ```
-=, +=, -=, *=, /=, %=, &=, |=, ^=, <<=, >>=
+=
 ```
+
+Only simple assignment (`=`) is supported. Compound assignment operators (`+=`, `-=`, `*=`, `/=`, `%=`, `&=`, `|=`, `^=`, `<<=`, `>>=`) and increment/decrement operators (`++`, `--`) have been removed — they conflict with the immutability rules (see [Immutability Rules](#immutability-rules)).
 
 #### Arithmetic Operators
 ```
-+, -, *, /, %, ++, --
++, -, *, /, %
 ```
 
 #### Comparison Operators
@@ -119,239 +133,239 @@ Goval supports two comment formats:
 
 ### Program Structure
 
-A Goval program consists of one or more struct declarations or statements:
+A Goval program consists of zero or more statements:
 
 ```
-program : (structDeclaration | statement)+ EOF ;
+program : statement* EOF ;
 ```
 
-### Type System
+### Statements
 
-#### Primitive Types
+A statement is one of:
 
-Goval supports the following primitive types:
-
-- Integer types: `byte`, `short`, `int`, `long`, `char`
-- Floating-point types: `float`, `double`
-- Boolean type: `boolean`
-- String type: `string`
-
-#### Type Declaration
-
-Types can be declared in the following ways:
-
-1. Primitive types: `int`, `string`, `boolean`, etc.
-2. Array types: append `[]` to a primitive type, e.g. `int[]`, `string[][]`
-3. Function types: `(T1, T2) -> R` or `(T1 name1, T2 name2) -> R`
-4. Container types:
-   - List: `List<T>`
-   - Map: `Map<K,V>`
-   - Set: `Set<T>`
+```
+statement
+    : block
+    | ifStatement
+    | forStatement
+    | breakStatement
+    | continueStatement
+    | expressionStatement
+    | localVariableDeclarationStatement
+    | SEMI
+    ;
+```
 
 ### Variable Declaration
 
-Goval supports two variable declaration styles:
-
-#### Static Typing
-```
-int a = 1;
-string name = "Goval";
-boolean flag = true;
-```
-
-#### Type Inference with `var`
-```
-var x = 10;        // inferred as int
-var y = "hello";   // inferred as string
-var z = 3.14;      // inferred as double
-```
-
-Note: Variables declared with `var` must be initialized.
-
-### Struct Declaration
-
-Goval supports struct declarations using the `struct` keyword. A struct can contain fields and methods:
-
-#### Basic Struct
-```
-struct Point {
-    double x,
-    double y
-}
-```
-
-#### Struct with Methods
-```
-struct Rectangle {
-    double width,
-    double height,
-    
-    // calculate area
-    area() -> double {
-        return this.width * this.height;
-    },
-    
-    // calculate perimeter
-    perimeter() -> double {
-        return 2 * (this.width + this.height);
-    },
-    
-    // set dimensions (no return value)
-    setSize(double w, double h) {
-        this.width = w;
-        this.height = h;
-    }
-}
-```
-
-#### Method Syntax
-
-The basic syntax format of a method:
-```
-methodName(parameter1 type1, parameter2 type2) -> returnType {
-    // method body
-    return value;
-}
-```
-
-- The method name is followed by a parameter list.
-- If there is a return value, use `-> returnType` to specify the return type.
-- If there is no return value, `-> returnType` can be omitted.
-- Use the `this` keyword inside a method to reference the current instance.
-
-#### The `this` Keyword
-
-Inside struct methods, the `this` keyword can be used to access the current instance's fields and methods:
+Variables are declared with `var` and **must be initialized** (the type is inferred from the initializer):
 
 ```
-struct Counter {
-    int count,
-    
-    increment() {
-        this.count++;          // access field
-    },
-    
-    getValue() -> int {
-        return this.count;     // return field value
-    },
-    
-    reset() {
-        this.count = 0;        // set field value
-    },
-    
-    doubleValue() -> int {
-        return this.getValue() * 2;  // call another method
-    }
-}
+var x = 10;           // int
+var name = "Goval";   // string
+var flag = true;      // boolean
+var pi = 3.14;        // float/double
+var multiply = (a, b) -> a * b;   // lambda
 ```
 
-### Struct Literals
-
-Structs can be instantiated using literal syntax:
+Multiple declarators are allowed in one statement:
 
 ```
-Point{x: 1.0, y: 2.0}
-Rectangle{width: 10.0, height: 5.0}
+var x = 1, y = 2, z = 3;
 ```
 
-### Container Literals
+Static type declarations (`int a = 1;`, `string name = "Goval";`) and type annotations on parameters are **not supported** — use `var` for all declarations.
 
-#### List Literals
-```
-List{1, 2, 3}    // using the List keyword
-[1, 2, 3]        // syntactic sugar
-```
+### Assignment
 
-#### Map Literals
+Assignment rebinds an existing variable. The left-hand side **must be a bare identifier** — this is the immutability rule (see [Immutability Rules](#immutability-rules)):
+
 ```
-Map{"key1": value1, "key2": value2}
+x = 20;
+result = x + 1;
 ```
 
-#### Set Literals
-```
-Set{1, 2, 3}
-```
+Field assignment (`p.name = ...`) and element assignment (`lst[i] = ...`, `m["k"] = ...`) are **syntactically rejected**.
 
-### Control Flow Statements
+### Control Flow
 
-#### If Statement
+#### If / Else If / Else
 ```
 if (condition) {
+    // statement block
+} else if (otherCondition) {
     // statement block
 } else {
     // statement block
 }
 ```
 
-#### Switch Statement
+The `else` clause is optional. `switch`/`case`/`default` are **not supported** — use `if`/`else if` chains instead.
+
+#### For-In Loop
+
+Goval supports only the for-in form of the `for` loop. The three-part C-style `for (init; cond; update)` form is **not supported**.
+
+Iterate over a List (value binding):
 ```
-switch (expression) {
-    case value1:
-        // statement
-        break;
-    case value2:
-        // statement
-        break;
-    default:
-        // statement
+for x in [1, 2, 3] {
+    // use x
 }
 ```
 
-#### Loop Statements
-
-##### Basic For Loop
+Iterate over a Map (key, value binding):
 ```
-for (init; condition; update) {
-    // statement block
+for k, v in userMap {
+    // use k and v
 }
 ```
 
-##### Enhanced For Loop
+Iterate over a string (character binding):
 ```
-for (type variable : collection) {
-    // statement block
+for ch in "hello" {
+    // use ch
 }
 ```
 
-#### Control Statements
+#### Break and Continue
 
-- `break`: exits a loop
-- `continue`: skips the current loop iteration
-- `return`: returns from a function
+- `break;` — exits the enclosing `for` loop.
+- `continue;` — skips to the next iteration of the enclosing `for` loop.
+
+`break` and `continue` are only legal inside a `for` body; using them elsewhere is a semantic error. `return` is **not supported** — lambdas and expression blocks return their trailing expression (see [Expression Blocks](#expression-blocks)).
+
+### Immutability Rules
+
+Goval enforces a **fully immutable** model for objects and containers:
+
+1. **Object fields are read-only.** Once a Map-based object is constructed, its fields cannot be reassigned. `p.name = "x"` is a syntax error.
+2. **Container elements are read-only.** `lst[i] = ...` and `m["k"] = ...` are syntax errors.
+3. **The only writable target is a local variable identifier.** `x = ...` is allowed at any scope; `.field =` and `[i] =` are rejected by the parser.
+4. **Container modification goes through built-in functions** that return new containers, leaving the original unchanged:
+
+```
+lst2 = append(lst, x)        // returns a new List; lst is unchanged
+m2 = put(m, "k", v)          // returns a new Map
+lst2 = removeAt(lst, 0)      // returns a new List without the element at index 0
+```
+
+5. **No `this`, no `return`.** Methods are lambdas that capture constructor parameters via closure; they never reference the enclosing object itself. Lambdas return the value of their body's trailing expression.
+
+### Objects: Lambda Factory + Map Literal
+
+Custom "types" need no dedicated syntax. A type is a **factory function** that returns a Map literal: fields are Map keys, methods are closure values.
+
+```
+Person = (name, age) -> {
+    name: name,
+    age: age,
+    greet: () -> "hi " + name      // closure captures constructor param; no `this`
+}
+
+p = Person("alice", 30)
+p.name                              // "alice"  — Map lookup
+p.greet()                           // "hi alice" — fetch lambda, then call
+```
+
+- Accessing `p.name` is a Map lookup; `p.greet()` is fetching the lambda value and invoking it. Both are the standard `.identifier` and `.identifier()` postfix forms — no special method-call rule.
+- Each call to the factory produces an independent object (its own closure, its own Map).
+- Methods capture **constructor parameters**, not the Map's current fields. This is the accepted trade-off of the immutable model: construct once, evaluate read-only, produce a result.
+
+A method with no parameters:
+```
+Counter = (start) -> {
+    value: start,
+    twice: () -> start * 2
+}
+```
+
+A method with parameters:
+```
+Calculator = (base) -> {
+    base: base,
+    add: (n) -> base + n,
+    scale: (factor, offset) -> base * factor + offset
+}
+```
+
+### Container Literals
+
+#### List Literals
+```
+[1, 2, 3]
+["a", "b", "c"]
+[]
+```
+
+#### Map Literals
+```
+{"key1": value1, "key2": value2}
+{}
+{"name": "alice", "age": 30}
+```
+
+Map literals double as the object body inside a lambda factory (see above).
+
+`Set` has no literal syntax and no keyword. Set operations are provided by built-in functions (e.g. `setOf`, `unique`) rather than grammar-level syntax.
 
 ### Lambda Expressions
 
-Goval supports lambda expressions:
+A lambda has the form `parameters -> body`:
 
 ```
-// simple form
+// single parameter, no parentheses needed
 x -> x * 2
 
-// with parameter types
-(int x, int y) -> x + y
+// zero parameters
+() -> "hello"
 
-// with a statement block
+// multiple parameters
+(a, b) -> a + b
+```
+
+Parameters are **bare identifiers** — no type annotations. The body is either a single expression or an expression block:
+
+```
+// expression body
+(x, y) -> x + y
+
+// block body: statements followed by a trailing expression
 (x, y) -> {
-    int sum = x + y;
-    return sum * 2;
+    var sum = x + y;
+    sum * 2          // trailing expression — the lambda's return value
 }
 ```
+
+A lambda captures variables from its enclosing scope by closure.
 
 ### Expression Blocks
 
-An expression block is a special statement block where the value of the last expression becomes the block's return value:
+An expression block is a `{ statements... expression }` form where the **trailing expression** becomes the block's value. Expression blocks are used as lambda block bodies and can also appear as a primary expression:
 
 ```
 {
-    int x = 10;
-    int y = 20;
-    x + y  // return value of the block
+    var x = 10;
+    var y = 20;
+    x + y            // the value of the block
 }
+```
+
+The block's last element **must be an expression** (not a statement); there is no `return` keyword. This is how lambdas and blocks produce values.
+
+### Postfix Access
+
+All access forms are **read-only**:
+
+```
+p.name              // field access (Map lookup)
+lst[i]              // subscript access (List/Map/string)
+f(args)             // function call
+obj.method(args)    // method call (fetch lambda, then call)
 ```
 
 ## Parser Generation
 
-Goval uses ANTLR4 as the parser generator. Lexical rules and grammar rules are defined separately in `RuleExprLexer.g4` and `RuleExprParser.g4`.
+Goval uses ANTLR4 as the parser generator. Lexical rules and grammar rules are defined separately in `grammar/RuleExprLexer.g4` and `grammar/RuleExprParser.g4`.
 
 Run the `generate.sh` script to generate the Go code:
 
@@ -359,71 +373,59 @@ Run the `generate.sh` script to generate the Go code:
 ./generate.sh
 ```
 
-This will generate the parser and visitor code in the `internal/ast` directory.
+This regenerates the parser and visitor code in the `internal/ast` directory.
 
-## Usage Examples
+## Static Checks
 
-The following is a simple example of using Goval:
+The `SyntaxChecker` (in `internal/syntax`) validates a parse tree beyond what the grammar enforces:
+
+1. **Lvalue check** — the left side of an assignment must be an identifier. `.field =` and `[i] =` are rejected.
+2. **For-in target check** — the expression after `in` must be a traversable type (List, Map, or string).
+3. **break/continue scope** — `break` and `continue` are only legal inside a `for` body.
+4. **Lambda block tail** — a lambda block body must end with an expression (the return value).
+
+## Usage Example
 
 ```
-// variable declaration
-var x = 10;
-string message = "hello";
+// Rule: discount VIP users' large orders
 
-// struct declaration
-struct Calculator {
-    int value,
-    
-    // set value
-    setValue(int v) {
-        this.value = v;
-    },
-    
-    // get value
-    getValue() -> int {
-        return this.value;
-    },
-    
-    // addition
-    add(int n) -> int {
-        this.value += n;
-        return this.value;
-    },
-    
-    // reset
-    reset() {
-        this.value = 0;
-    }
+Order = (amount, userId) -> {
+    amount: amount,
+    userId: userId,
+    discounted: (rate) -> amount * rate
+}
+User = (id, level) -> { id: id, level: level }
+
+users = [
+    User("u1", "gold"),
+    User("u2", "vip")
+]
+userMap = {}
+for u in users {
+    userMap = put(userMap, u.id, u)
 }
 
-// struct instantiation
-Calculator calc = Calculator{value: 10};
-
-// control flow
-if (x > 5) {
-    return "greater than 5";
-} else {
-    return "less than or equal to 5";
-}
-
-// lambda expression
-var multiply = (a, b) -> a * b;
-
-// container usage
-List<int> numbers = [1, 2, 3, 4, 5];
-Map<string, int> scores = Map{"Alice": 95, "Bob": 87};
+order = Order(500, "u2")
+user = userMap[order.userId]
+final = user.level == "vip" && order.amount > 100
+        ? order.discounted(0.8)
+        : order.amount
 ```
 
 ## Summary
 
-Goval provides a concise yet powerful expression language, especially suited for embedding in Go applications. It supports both static typing and `var` type inference, rich container types, structs with methods, control flow statements, and lambda expressions. Through the `this` keyword, struct methods can conveniently access the instance's fields and other methods, enabling developers to write object-oriented style code while maintaining type safety and high performance.
+Goval is a concise expression language for rule engines, built on three ideas:
+
+- **Objects as lambda factories + Map literals** — no `struct`, no `this`, no method-declaration syntax. A "type" is a function returning a Map; methods are closures that capture constructor parameters.
+- **Full immutability** — object fields and container elements are read-only. The only writable targets are local variables (identifiers). Container updates go through built-in functions that return new containers.
+- **Expression-oriented control flow** — `if`/`else`, `for`-`in`, `break`/`continue`. No `switch`, no `return`, no three-part `for`. Lambdas and expression blocks return their trailing expression.
 
 ### Key Features
 
-- **Type System**: Supports static type declarations and `var` type inference
-- **Structs**: Supports fields and methods for object-oriented programming
-- **`this` Keyword**: Access the current instance inside methods
-- **Container Types**: Built-in List, Map, and Set support
-- **Lambda Expressions**: Functional programming support
-- **Control Flow**: Full if/else, for, and switch support
-- **Expression Blocks**: Supports complex expression composition
+- **Type Inference**: `var` declarations with mandatory initialization; no type annotations.
+- **Lambda Factories**: custom types as functions returning Map literals.
+- **Immutability**: identifier-only lvalues; containers modified via built-in functions.
+- **Container Literals**: List `[...]` and Map `{...}`; Set via built-in functions only.
+- **Control Flow**: `if`/`else`, `for`-`in` over List/Map/string, `break`/`continue`.
+- **Expression Blocks**: `{ stmts; expr }` — trailing expression is the block's value.
+- **Lambda Closures**: `(params) -> expr` or `(params) -> { stmts; expr }`.

@@ -1,8 +1,6 @@
 /**
- * Goval Expression Language Lexer
- * 
- * Lexical analysis for a lightweight expression language
- * designed for embedding in Go applications.
+ * Goval Expression Language Lexer (simplified)
+ * 面向规则引擎：不可变对象 + lambda + 最小控制流
  */
 
 // $antlr-format alignTrailingComments true, columnLimit 150, maxEmptyLinesToKeep 1, reflowComments false, useTab false
@@ -11,34 +9,14 @@
 
 lexer grammar RuleExprLexer;
 
-// LEXER
-
-// Keywords
-BOOLEAN      : 'boolean';
-BREAK        : 'break';
-BYTE         : 'byte';
-CASE         : 'case';
-CHAR         : 'char';
-CONTINUE     : 'continue';
-DEFAULT      : 'default';
-DOUBLE       : 'double';
-ELSE         : 'else';
-FLOAT        : 'float';
-FOR          : 'for';
-IF           : 'if';
-IN           : 'in';
-INT          : 'int';
-LIST         : 'List';
-LONG         : 'long';
-MAP          : 'Map';
-RETURN       : 'return';
-SET          : 'Set';
-SHORT        : 'short';
-STRING       : 'string';
-STRUCT       : 'struct';
-SWITCH       : 'switch';
-THIS         : 'this';
-VAR          : 'var';
+// Keywords（仅保留精简后所需）
+BREAK    : 'break';
+CONTINUE : 'continue';
+ELSE     : 'else';
+FOR      : 'for';
+IF       : 'if';
+IN       : 'in';
+VAR      : 'var';
 
 // Integer Literals
 IntegerLiteral
@@ -67,10 +45,6 @@ fragment BinaryIntegerLiteral
 
 // Floating-Point Literals
 FloatingPointLiteral
-    : DecimalFloatingPointLiteral
-    ;
-
-fragment DecimalFloatingPointLiteral
     : [0-9]+ '.' [0-9]* [fFdD]?
     | '.' [0-9]+ [fFdD]?
     | [0-9]+ [eE] [+-]? [0-9]+ [fFdD]?
@@ -105,11 +79,9 @@ fragment UnicodeEscape
     ;
 
 // The Null Literal
-
 NullLiteral: 'null';
 
 // Separators
-
 LPAREN : '(';
 RPAREN : ')';
 LBRACE : '{';
@@ -119,80 +91,59 @@ RBRACK : ']';
 SEMI   : ';';
 COMMA  : ',';
 DOT    : '.';
+COLON  : ':';
 
 // Operators
+ASSIGN   : '=';
+GT       : '>';
+LT       : '<';
+BANG     : '!';
+TILDE    : '~';
+QUESTION : '?';
+EQUAL    : '==';
+LE       : '<=';
+GE       : '>=';
+NOTEQUAL : '!=';
+AND      : '&&';
+OR       : '||';
+ADD      : '+';
+SUB      : '-';
+MUL      : '*';
+DIV      : '/';
+BITAND   : '&';
+BITOR    : '|';
+CARET    : '^';
+MOD      : '%';
+ARROW    : '->';
+LSHIFT   : '<<';
+RSHIFT   : '>>';
 
-ASSIGN     : '=';
-GT         : '>';
-LT         : '<';
-BANG       : '!';
-TILDE      : '~';
-QUESTION   : '?';
-COLON      : ':';
-EQUAL      : '==';
-LE         : '<=';
-GE         : '>=';
-NOTEQUAL   : '!=';
-AND        : '&&';
-OR         : '||';
-INC        : '++';
-DEC        : '--';
-ADD        : '+';
-SUB        : '-';
-MUL        : '*';
-DIV        : '/';
-BITAND     : '&';
-BITOR      : '|';
-CARET      : '^';
-MOD        : '%';
-ARROW      : '->';
-
-ADD_ASSIGN     : '+=';
-SUB_ASSIGN     : '-=';
-MUL_ASSIGN     : '*=';
-DIV_ASSIGN     : '/=';
-AND_ASSIGN     : '&=';
-OR_ASSIGN      : '|=';
-XOR_ASSIGN     : '^=';
-MOD_ASSIGN     : '%=';
-LSHIFT_ASSIGN  : '<<=';
-RSHIFT_ASSIGN  : '>>=';
-
-// Shift operators (simplified)
-LSHIFT         : '<<';
-RSHIFT         : '>>';
-
+// 占位符变量（规则引擎上下文占位）
 PLACEHOLDER_VAR : '#' Identifier '#' ;
 
-// Identifiers (must appear after all keywords in the grammar)
+// Identifiers
 Identifier: IdentifierStart IdentifierPart*;
 
-// Simplified identifier rules, supporting basic ASCII characters and common Unicode ranges
 fragment IdentifierStart:
-    [a-zA-Z_$]                          // Basic ASCII letters, underscore, dollar sign
-    | [\u00A0-\u00FF]                   // Extended ASCII (Latin-1 Supplement)
-    | [\u0100-\u017F]                   // Latin Extended-A
-    | [\u0180-\u024F]                   // Latin Extended-B
-    | [\u4E00-\u9FFF]                   // CJK Unified Ideographs
-    | [\u3400-\u4DBF]                   // CJK Extension A
-    | [\uAC00-\uD7AF]                   // Hangul Syllables
-    | [\u3040-\u309F]                   // Hiragana
-    | [\u30A0-\u30FF]                   // Katakana
+    [a-zA-Z_$]
+    | [À-ÿ]
+    | [Ā-ſ]
+    | [ƀ-ɏ]
+    | [一-鿿]
+    | [㐀-䶿]
+    | [가-힯]
+    | [぀-ゟ]
+    | [゠-ヿ]
 ;
 
 fragment IdentifierPart:
     IdentifierStart
-    | [0-9]                             // Digits
-    | [\u0300-\u036F]                   // Combining Diacritical Marks
-    | [\u200C-\u200D]                   // Zero Width Non-Joiner and Joiner
+    | [0-9]
+    | [̀-ͯ]
+    | [‌-‍]
 ;
 
-//
 // Whitespace and comments
-//
-
-WS: [ \t\r\n\u000C]+ -> skip;
-
+WS: [ \t\r\n]+ -> skip;
 COMMENT: '/*' .*? '*/' -> skip;
-
 LINE_COMMENT: '//' ~[\r\n]* -> skip;
