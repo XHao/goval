@@ -2,6 +2,7 @@ package eval
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -64,6 +65,17 @@ func wantToValue(v interface{}) Value {
 	panic(fmt.Sprintf("unsupported want type: %T", v))
 }
 
+// valuesEqual 比较两个 Value，把 nil 与空 list 视为相等（内置函数返回 nil 切片，
+// 而期望值构造的是空非 nil 切片，reflect.DeepEqual 会误判）。
+func valuesEqual(a, b Value) bool {
+	if a.IsList() && b.IsList() {
+		if len(a.list) == 0 && len(b.list) == 0 {
+			return true
+		}
+	}
+	return reflect.DeepEqual(a, b)
+}
+
 // assertEval 断言 src 求值成功且结果与 want 相等。
 func assertEval(t *testing.T, src string, want interface{}) {
 	t.Helper()
@@ -71,7 +83,7 @@ func assertEval(t *testing.T, src string, want interface{}) {
 	if !assert.NoError(t, err, "src: %s", src) {
 		return
 	}
-	assert.Equal(t, wantToValue(want), v, "src: %s", src)
+	assert.True(t, valuesEqual(wantToValue(want), v), "src: %s\nwant=%+v\n got=%+v", src, wantToValue(want), v)
 }
 
 // assertEvalCtx 断言带上下文求值成功。
@@ -81,7 +93,7 @@ func assertEvalCtx(t *testing.T, src string, ctx map[string]Value, want interfac
 	if !assert.NoError(t, err, "src: %s", src) {
 		return
 	}
-	assert.Equal(t, wantToValue(want), v, "src: %s", src)
+	assert.True(t, valuesEqual(wantToValue(want), v), "src: %s\nwant=%+v\n got=%+v", src, wantToValue(want), v)
 }
 
 // assertEvalError 断言 src 编译或求值报错；可选匹配错误子串。
