@@ -8,11 +8,11 @@ import (
 )
 
 // evalResult 编译并求值 src，返回 Value 与 error（求值期 panic 转为 error）。
-func evalResult(t *testing.T, src string, ctx map[string]Value) (Value, error) {
+func evalResult(t *testing.T, src string, ctx map[string]Value) (v Value, err error) {
 	t.Helper()
-	fn, err := CompileString(src)
-	if err != nil {
-		return Value{}, err
+	fn, cerr := CompileString(src)
+	if cerr != nil {
+		return Value{}, cerr
 	}
 	env := NewRootEnv()
 	for name, val := range ctx {
@@ -23,7 +23,7 @@ func evalResult(t *testing.T, src string, ctx map[string]Value) (Value, error) {
 			err = toEvalErr(r)
 		}
 	}()
-	return Run(fn, env), err
+	return Run(fn, env), nil
 }
 
 func toEvalErr(r interface{}) error {
