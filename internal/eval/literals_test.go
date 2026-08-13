@@ -40,10 +40,7 @@ func TestLiterals(t *testing.T) {
 		assertEval(t, "'\\n'", int64(10))
 		assertEval(t, "'\\t'", int64(9))
 		assertEval(t, "'\\''", int64(39))
-		// 已知缺陷：反斜杠字符字面量 '\\' 求值为 null 而非 92。
-		// 待实现修复后移除此 skip。
-		t.Skip("已知缺陷：'\\' 求值为 null 而非 92，待实现修复")
-		assertEval(t, "'\\\\'", int64(92))
+		assertEval(t, "'\\\\'", int64(92)) // 转义反斜杠字符
 	})
 	t.Run("string", func(t *testing.T) {
 		assertEval(t, `"hello"`, "hello")
