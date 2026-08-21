@@ -412,8 +412,6 @@ Parameters are **bare identifiers** — no type annotations. The body is either 
 
 A lambda captures variables from its enclosing scope by closure (capturing the value at the point of definition).
 
-> **Known limitation:** a lambda block body whose trailing expression is a compound expression (e.g. `t + 1`) may evaluate incorrectly. Use a simple trailing identifier, or compute the value into a `var` first and use that identifier as the trailing expression. (Tracked as a known defect in the test suite.)
-
 ### Expression Blocks
 
 An expression block is a `{ statements... expression }` form where the **trailing expression** becomes the block's value. Expression blocks are used as lambda block bodies and can also appear as a primary expression:
@@ -478,11 +476,11 @@ This regenerates the parser and visitor code in the `internal/ast` directory.
 
 ## Static Checks
 
-The `SyntaxChecker` (in `internal/syntax`) validates a parse tree beyond what the grammar enforces:
+The public `goval.Evaluate` runs the full pipeline — parsing, semantic checks, compilation, evaluation — and errors from any stage are returned as `error`:
 
-1. **Lvalue check** — the left side of an assignment must be an identifier. `.field =` and `[i] =` are rejected.
-2. **break/continue scope** — `break` and `continue` are only legal inside a `for` body.
-3. **Single-assignment check** — rebinding an already-declared variable is a compile-time error (enforced in the `eval` compiler).
+1. **Grammar-level** — the left side of an assignment must be a bare identifier; `.field =` and `[i] =` are parse errors. Unsupported syntax (compound assignment, `++`/`--`, C-style three-part `for`, `switch`, `return`) is likewise rejected at parse time.
+2. **Semantic checks** — the `SyntaxChecker` (in `internal/syntax`) validates the parse tree beyond what the grammar enforces: `break` and `continue` are only legal inside a `for` body.
+3. **Compile-time checks** — single assignment is enforced in the `eval` compiler: rebinding an already-declared variable is a compile-time error.
 
 ## Embedding API
 
@@ -495,7 +493,7 @@ v, err := goval.Evaluate(source string, context map[string]interface{}) (interfa
 - `source` is a Goval program string.
 - `context` injects Go values as global variables. Supported Go types: `int`, `int64`, `float64`, `float32`, `bool`, `string`, `nil`, `[]interface{}`, `map[string]interface{}`.
 - The result is a Go native value: `int64`, `float64`, `bool`, `string`, `nil`, `[]interface{}`, or `map[string]interface{}`.
-- Runtime panics (e.g. division by zero, type mismatches) are recovered and returned as `error`, never propagated to the caller.
+- Errors from every stage are returned as `error` — never as a panic to the caller: syntax errors (rejected input, unsupported operators, non-identifier lvalues), semantic errors (`break`/`continue` outside a loop), compile errors (single-assignment violations), and runtime panics (e.g. division by zero, type mismatches) are all recovered and returned.
 
 ```go
 v, err := goval.Evaluate("1 + 2 * 3", nil)

@@ -29,7 +29,7 @@ package main
 
 import (
     "fmt"
-    "github.com/XHao/goval"
+    "github.com/XHao/goval/pkg/goval"
 )
 
 func main() {
