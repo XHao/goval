@@ -270,6 +270,9 @@ expressionList
 // Expression block（lambda 块体 / 顶层块）
 // ============================================================================
 
+// 非贪婪循环：语句尽可能少消费，把 token 留给尾表达式。
+// 否则 { var t = 1; t + 1 } 会被贪婪解析成语句 t + 尾表达式 +1（一元正号），
+// 导致求值结果错误。非贪婪下两种切分都可行时优先少消费语句。
 expressionBlock
-    : LBRACE blockStatement* expression RBRACE    // 末尾必须是表达式（返回值）
+    : LBRACE blockStatement*? expression RBRACE    // 末尾必须是表达式（返回值）
     ;
