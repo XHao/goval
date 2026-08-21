@@ -13,20 +13,30 @@ package goval
 import (
 	"fmt"
 
-	"github.com/antlr4-go/antlr/v4"
-	"github.com/XHao/goval/internal/ast"
 	"github.com/XHao/goval/internal/eval"
+	"github.com/XHao/goval/internal/syntax"
 )
 
 // Evaluate 编译并求值 source 表达式。context 中的值作为全局变量注入。
 // 返回 Go 原生值（int64/float64/bool/string/nil/[]interface{}/map[string]interface{}）。
+// 解析/语义/编译/求值任一阶段的错误都转为 error 返回；
 // 求值期发生的 panic 会被 recover 转为 error 返回，不会 panic 到调用方。
 func Evaluate(source string, context map[string]interface{}) (result interface{}, err error) {
-	input := antlr.NewInputStream(source)
-	lexer := ast.NewRuleExprLexer(input)
-	stream := antlr.NewCommonTokenStream(lexer, antlr.TokenDefaultChannel)
-	parser := ast.NewRuleExprParser(stream)
-	tree := parser.Program()
+	defer func() {
+		if r := recover(); r != nil {
+			if ee, ok := r.(*eval.EvalError); ok {
+				err = ee
+			} else {
+				err = fmt.Errorf("%v", r)
+			}
+			result = nil
+		}
+	}()
+
+	tree, err := syntax.NewSyntaxChecker().CheckString(source)
+	if err != nil {
+		return nil, err
+	}
 
 	fn, err := eval.Compile(tree)
 	if err != nil {
@@ -38,16 +48,6 @@ func Evaluate(source string, context map[string]interface{}) (result interface{}
 		env.Set(name, toGovalValue(val))
 	}
 
-	defer func() {
-		if r := recover(); r != nil {
-			if ee, ok := r.(*eval.EvalError); ok {
-				err = ee
-			} else {
-				err = fmt.Errorf("%v", r)
-			}
-			result = nil
-		}
-	}()
 	val := eval.Run(fn, env)
 	return toGoValue(val), nil
 }
