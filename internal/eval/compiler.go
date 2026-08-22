@@ -7,25 +7,43 @@ import (
 	"github.com/XHao/goval/internal/ast"
 )
 
-// compiler 遍历 AST 产出闭包树，同时做单赋值检查。
+// scopeInfo 是编译期静态作用域层：已绑定名字 + 是否 lambda 体。
+// isLambda 用于隐式 this 改写的延迟位置判定：只有 lambda 体内的引用
+// 才算延迟求值（构造位置的表达式立即求值，不参与改写）。
+type scopeInfo struct {
+	names    map[string]bool
+	isLambda bool
+}
+
+// mapZone 记录一个 Map 字面量的静态字段名集合与其编译位置。
+// 嵌套 lambda 体内撞字段名的裸标识符将被改写为 this.field 访问。
+type mapZone struct {
+	fields     map[string]bool
+	entryDepth int // 进入 Map 值编译时的 len(c.scopes)
+}
+
+// compiler 遍历 AST 产出闭包树。
 type compiler struct {
-	scopes []map[string]bool // 每层作用域记录已绑定变量名
+	scopes []scopeInfo
+	zones  []mapZone
+	// noImplicitThis > 0 时（capture 语境内）不做隐式 this 改写，
+	// 撞字段名的裸名回归纯闭包语义。
+	noImplicitThis int
 }
 
 func (c *compiler) currentScope() map[string]bool {
-	return c.scopes[len(c.scopes)-1]
+	return c.scopes[len(c.scopes)-1].names
 }
 
-func (c *compiler) pushScope() {
-	c.scopes = append(c.scopes, make(map[string]bool))
+func (c *compiler) pushScope(isLambda bool) {
+	c.scopes = append(c.scopes, scopeInfo{names: make(map[string]bool), isLambda: isLambda})
 }
 
 func (c *compiler) popScope() {
 	c.scopes = c.scopes[:len(c.scopes)-1]
 }
 
-// declare 绑定变量名，返回是否重绑定（true=冲突）。
-// 仅检查当前作用域。
+// declare 绑定变量名，返回是否重绑定（true=当前作用域冲突）。
 func (c *compiler) declare(name string) bool {
 	sc := c.currentScope()
 	if sc[name] {
@@ -36,15 +54,65 @@ func (c *compiler) declare(name string) bool {
 }
 
 // isAlreadyDeclared 检查从当前作用域到根的所有层级，变量是否已声明。
-// 用于循环体内赋值外层变量的拦截：外层变量已在父作用域 declare，
-// 子作用域内的赋值（compileAssignment）应报 rebind 错误。
+// v2 裸赋值的前置检查：赋值目标必须已绑定（var / 外层 / context / 内置）。
 func (c *compiler) isAlreadyDeclared(name string) bool {
 	for _, sc := range c.scopes {
-		if sc[name] {
+		if sc.names[name] {
 			return true
 		}
 	}
 	return false
+}
+
+// implicitThisField 判断裸名 name 是否应改写为 this.name：
+// 位于某活跃 Map 改写区内、撞该 Map 字段名、当前位置在 lambda 体内
+// （延迟求值）、且未被 Map 之后声明的参数/局部变量遮蔽。
+func (c *compiler) implicitThisField(name string) bool {
+	if c.noImplicitThis > 0 {
+		return false
+	}
+	d := len(c.scopes)
+	for i := len(c.zones) - 1; i >= 0; i-- {
+		z := c.zones[i]
+		if !z.fields[name] {
+			continue
+		}
+		if d <= z.entryDepth {
+			continue // 构造位置，立即求值
+		}
+		deferred := false
+		shadowed := false
+		for _, sc := range c.scopes[z.entryDepth:d] {
+			if sc.isLambda {
+				deferred = true
+			}
+			if sc.names[name] {
+				shadowed = true
+			}
+		}
+		if deferred && !shadowed {
+			return true
+		}
+	}
+	return false
+}
+
+// compileThisFieldRead 编译 this.name 读访问（隐式改写的目标）。
+func compileThisFieldRead(name string, line, col int) func(*Env) Value {
+	return func(env *Env) Value {
+		recv, ok := env.Lookup("this")
+		if !ok {
+			panic(evalErrorf(line, col, "'this' is not bound here (detached method? call it as obj.method())"))
+		}
+		if !recv.IsMap() {
+			panic(evalErrorf(line, col, "cannot access field '%s' on %s receiver", name, kindName(recv)))
+		}
+		v, ok := recv.m[name]
+		if !ok {
+			return NullValue()
+		}
+		return v
+	}
 }
 
 // breakSignal / continueSignal 用 Go panic 机制实现跨闭包的 break/continue 早退。
@@ -106,7 +174,7 @@ func (c *compiler) compileVarDecl(ctx ast.ILocalVariableDeclarationStatementCont
 			return nil, &CompileError{
 				Line:   vd.Identifier().GetSymbol().GetLine(),
 				Column: vd.Identifier().GetSymbol().GetColumn(),
-				Msg:    "cannot rebind variable '" + name + "' (single assignment)",
+				Msg:    "variable '" + name + "' is already declared in this scope",
 			}
 		}
 		names = append(names, name)
@@ -142,41 +210,124 @@ func (c *compiler) compileAssignmentExpr(ctx *ast.AssignmentExpressionContext) (
 	return c.compileConditional(ctx.ConditionalExpression().(*ast.ConditionalExpressionContext))
 }
 
+// compileAssignment 编译 v2 赋值。左值三种形状（grammar 收窄，见 assignment 规则）：
+//
+//	Identifier         → 变量更新（沿链写入；隐式 this 改写优先）
+//	postfix.field      → Map 字段写入
+//	postfix[expr]      → List/Map 元素写入
 func (c *compiler) compileAssignment(ctx *ast.AssignmentContext) (func(*Env) Value, error) {
-	name := ctx.Identifier().GetText()
-	// 单赋值检查：如果变量在任何外层作用域已声明，赋值即为重绑定，编译报错。
-	// 这拦截了循环体内对外层变量的赋值（如 for { s = s + x }）。
-	if c.isAlreadyDeclared(name) {
-		return nil, &CompileError{
-			Line:   ctx.Identifier().GetSymbol().GetLine(),
-			Column: ctx.Identifier().GetSymbol().GetColumn(),
-			Msg:    "cannot rebind variable '" + name + "' (single assignment)",
+	tok := ctx.ASSIGN().GetSymbol()
+	line, col := tok.GetLine(), tok.GetColumn()
+
+	// 形状一：Identifier = expr
+	if ctx.PostfixExpression() == nil {
+		name := ctx.Identifier().GetText()
+		valFn, err := c.compileExpression(ctx.Expression(0))
+		if err != nil {
+			return nil, err
 		}
+		// 隐式 this 改写：撞字段名的裸名 → this.name = v
+		if c.implicitThisField(name) {
+			return func(env *Env) Value {
+				v := valFn(env)
+				recv, ok := env.Lookup("this")
+				if !ok {
+					panic(evalErrorf(line, col, "'this' is not bound here (detached method? call it as obj.method())"))
+				}
+				if !recv.IsMap() {
+					panic(evalErrorf(line, col, "cannot assign field '%s' on %s receiver", name, kindName(recv)))
+				}
+				recv.m[name] = v
+				return v
+			}, nil
+		}
+		// 严格赋值：目标必须已绑定（var / 外层 / context / 内置），防止拼写错误静默建新变量
+		if !c.isAlreadyDeclared(name) {
+			return nil, &CompileError{
+				Line:   line,
+				Column: col,
+				Msg:    "undefined variable '" + name + "': assignments require a prior 'var' declaration",
+			}
+		}
+		return func(env *Env) Value {
+			v := valFn(env)
+			if !env.Assign(name, v) {
+				panic(evalErrorf(line, col, "undefined variable: %s", name))
+			}
+			return v
+		}, nil
 	}
-	c.declare(name) // 在当前作用域标记（isAlreadyDeclared 已确认未声明，不会冲突）
-	valFn, err := c.compileExpression(ctx.Expression())
+
+	baseFn, err := c.compilePostfix(ctx.PostfixExpression().(*ast.PostfixExpressionContext))
+	if err != nil {
+		return nil, err
+	}
+
+	// 形状二：base.field = v
+	if ctx.DOT() != nil {
+		name := ctx.Identifier().GetText()
+		valFn, err := c.compileExpression(ctx.Expression(0))
+		if err != nil {
+			return nil, err
+		}
+		return func(env *Env) Value {
+			v := valFn(env)
+			base := baseFn(env)
+			if !base.IsMap() {
+				panic(evalErrorf(line, col, "cannot assign field '%s' on %s", name, kindName(base)))
+			}
+			base.m[name] = v
+			return v
+		}, nil
+	}
+
+	// 形状三：base[index] = v（index 是 Expression(0)，右值是 Expression(1)）
+	idxFn, err := c.compileExpression(ctx.Expression(0))
+	if err != nil {
+		return nil, err
+	}
+	valFn, err := c.compileExpression(ctx.Expression(1))
 	if err != nil {
 		return nil, err
 	}
 	return func(env *Env) Value {
 		v := valFn(env)
-		env.Set(name, v)
+		base := baseFn(env)
+		idx := idxFn(env)
+		switch {
+		case base.IsList():
+			if !idx.IsInt() {
+				panic(evalErrorf(line, col, "list index must be int, got %s", kindName(idx)))
+			}
+			i := int(idx.i)
+			if i < 0 || i >= len(base.list) {
+				panic(evalErrorf(line, col, "list index out of range: %d (len %d)", i, len(base.list)))
+			}
+			base.list[i] = v
+		case base.IsMap():
+			if !idx.IsString() {
+				panic(evalErrorf(line, col, "map key must be string, got %s", kindName(idx)))
+			}
+			base.m[idx.s] = v
+		default:
+			panic(evalErrorf(line, col, "cannot index-assign %s", kindName(base)))
+		}
 		return v
 	}, nil
 }
 
 func (c *compiler) compileConditional(ctx *ast.ConditionalExpressionContext) (func(*Env) Value, error) {
 	if ctx.QUESTION() != nil {
-		// 三元 a ? b : c
+		// 三元 a ? b : c（else 分支是完整 expression，允许裸赋值）
 		condFn, err := c.compileConditionalOr(ctx.ConditionalOrExpression().(*ast.ConditionalOrExpressionContext))
 		if err != nil {
 			return nil, err
 		}
-		thenFn, err := c.compileExpression(ctx.Expression())
+		thenFn, err := c.compileExpression(ctx.Expression(0))
 		if err != nil {
 			return nil, err
 		}
-		elseFn, err := c.compileConditional(ctx.ConditionalExpression().(*ast.ConditionalExpressionContext))
+		elseFn, err := c.compileExpression(ctx.Expression(1))
 		if err != nil {
 			return nil, err
 		}
@@ -553,7 +704,8 @@ func (c *compiler) compilePostfix(ctx *ast.PostfixExpressionContext) (func(*Env)
 				if !ok {
 					panic(evalErrorf(0, 0, "no method '%s' on map", name))
 				}
-				return callValue(method, args)
+				// 调用点注入 this：方法体内 this / 隐式字段访问都指向 base
+				return callValueWithReceiver(method, base, args)
 			}
 			panic(evalErrorf(0, 0, "cannot call method '%s' on %s", name, kindName(base)))
 		}, nil
@@ -575,6 +727,69 @@ func (c *compiler) compilePostfix(ctx *ast.PostfixExpressionContext) (func(*Env)
 		if err != nil {
 			return nil, err
 		}
+		// NOTE: ANTLR 将 obj.method(args) 解析为「字段访问 obj.method」+「普通调用」
+		// 两步嵌套（DOT+LPAREN 单步规则不命中），方法语义在这里实现：
+		// callee 是字段/下标访问时，把被访问的容器作为 this 注入。
+		left := ctx.PostfixExpression().(*ast.PostfixExpressionContext)
+		switch {
+		case left.DOT() != nil && left.LPAREN() == nil: // obj.field(args) → 方法调用
+			name := left.Identifier().GetText()
+			baseFn, err := c.compilePostfix(left.PostfixExpression().(*ast.PostfixExpressionContext))
+			if err != nil {
+				return nil, err
+			}
+			return func(env *Env) Value {
+				base := baseFn(env)
+				args := make([]Value, len(argFns))
+				for i, fn := range argFns {
+					args[i] = fn(env)
+				}
+				if !base.IsMap() {
+					panic(evalErrorf(0, 0, "cannot call method '%s' on %s", name, kindName(base)))
+				}
+				method, ok := base.m[name]
+				if !ok {
+					panic(evalErrorf(0, 0, "no method '%s' on map", name))
+				}
+				// 调用点注入 this：方法体内 this / 隐式字段访问都指向 base
+				return callValueWithReceiver(method, base, args)
+			}, nil
+		case left.LBRACK() != nil && left.PostfixExpression() != nil: // m["f"](args) / lst[i](args)
+			baseFn, err := c.compilePostfix(left.PostfixExpression().(*ast.PostfixExpressionContext))
+			if err != nil {
+				return nil, err
+			}
+			idxFn, err := c.compileExpression(left.Expression())
+			if err != nil {
+				return nil, err
+			}
+			return func(env *Env) Value {
+				base := baseFn(env)
+				idx := idxFn(env)
+				args := make([]Value, len(argFns))
+				for i, fn := range argFns {
+					args[i] = fn(env)
+				}
+				var callee Value
+				switch {
+				case base.IsList():
+					i := int(idx.i)
+					if i < 0 || i >= len(base.list) {
+						panic(evalErrorf(0, 0, "list index out of range: %d (len %d)", i, len(base.list)))
+					}
+					callee = base.list[i]
+				case base.IsMap():
+					v, ok := base.m[idx.s]
+					if !ok {
+						panic(evalErrorf(0, 0, "no method '%s' on map", idx.s))
+					}
+					callee = v
+				default:
+					panic(evalErrorf(0, 0, "cannot index %s", kindName(base)))
+				}
+				return callValueWithReceiver(callee, base, args)
+			}, nil
+		}
 		return func(env *Env) Value {
 			callee := leftFn(env)
 			args := make([]Value, len(argFns))
@@ -593,13 +808,48 @@ func (c *compiler) compilePrimary(ctx *ast.PrimaryContext) (func(*Env) Value, er
 	}
 	if ctx.Identifier() != nil {
 		name := ctx.Identifier().GetText()
+		tok := ctx.Identifier().GetSymbol()
+		line, col := tok.GetLine(), tok.GetColumn()
+		// 隐式 this 改写：方法体内撞字段名的裸名 → this.name
+		if c.implicitThisField(name) {
+			return compileThisFieldRead(name, line, col), nil
+		}
 		return func(env *Env) Value {
 			v, ok := env.Lookup(name)
 			if !ok {
-				panic(evalErrorf(0, 0, "undefined variable: %s", name))
+				panic(evalErrorf(line, col, "undefined variable: %s", name))
 			}
 			return v
 		}, nil
+	}
+	// this：方法调用点注入的接收者（obj.method() 形式绑定）
+	if ctx.THIS() != nil {
+		tok := ctx.GetStart()
+		line, col := tok.GetLine(), tok.GetColumn()
+		return func(env *Env) Value {
+			v, ok := env.Lookup("this")
+			if !ok {
+				panic(evalErrorf(line, col, "'this' is not bound here (detached method? call it as obj.method())"))
+			}
+			return v
+		}, nil
+	}
+	// capture { ... } / capture (a) -> ...：纯编译期 pragma，
+	// 关闭词法范围内的隐式 this 改写；运行时与被包裹表达式完全相同。
+	if ctx.CAPTURE() != nil {
+		c.noImplicitThis++
+		var fn func(*Env) Value
+		var err error
+		if ctx.MapLiteral() != nil {
+			fn, err = c.compileMapLiteral(ctx.MapLiteral().(*ast.MapLiteralContext))
+		} else {
+			fn, err = c.compileLambda(ctx.LambdaExpression().(*ast.LambdaExpressionContext))
+		}
+		c.noImplicitThis--
+		if err != nil {
+			return nil, err
+		}
+		return fn, nil
 	}
 	// 括号表达式 (expr)
 	if ctx.LPAREN() != nil {
@@ -622,7 +872,7 @@ func (c *compiler) compilePrimary(ctx *ast.PrimaryContext) (func(*Env) Value, er
 // 块表达式在新的作用域编译，运行时用 NewEnv 创建 blockEnv，
 // var 声明写入 blockEnv，尾表达式在 blockEnv 上求值。
 func (c *compiler) compileExpressionBlock(ctx *ast.ExpressionBlockContext) (func(*Env) Value, error) {
-	c.pushScope()
+	c.pushScope(false)
 	var stmtFns []func(*Env) Value
 	for _, bs := range ctx.AllBlockStatement() {
 		fn, err := c.compileBlockStatement(bs)
@@ -670,30 +920,44 @@ func (c *compiler) compileListLiteral(ctx *ast.ListLiteralContext) (func(*Env) V
 }
 
 func (c *compiler) compileMapLiteral(ctx *ast.MapLiteralContext) (func(*Env) Value, error) {
-	var keyFns, valFns []func(*Env) Value
+	var entries []*ast.MapEntryContext
 	if ctx.MapEntryList() != nil {
 		ml := ctx.MapEntryList().(*ast.MapEntryListContext)
 		for _, entry := range ml.AllMapEntry() {
-			me := entry.(*ast.MapEntryContext)
-			exprs := me.AllExpression()
-			// Bare identifier as map key → string key (JS-like shorthand)
-			keyText := exprs[0].GetText()
-			if isIdentifierKey(keyText) {
-				k := keyText
-				keyFns = append(keyFns, func(env *Env) Value { return StringValue(k) })
-			} else {
-				kFn, err := c.compileExpression(exprs[0])
-				if err != nil {
-					return nil, err
-				}
-				keyFns = append(keyFns, kFn)
-			}
-			vFn, err := c.compileExpression(exprs[1])
+			entries = append(entries, entry.(*ast.MapEntryContext))
+		}
+	}
+	// 收集静态字段名（标识符简写 / 字符串字面量 key），压入隐式 this 改写区。
+	// 动态 key（如 m[k]）无法静态预知，不参与改写。
+	fields := make(map[string]bool, len(entries))
+	for _, me := range entries {
+		if k, ok := staticMapKey(me); ok {
+			fields[k] = true
+		}
+	}
+	c.zones = append(c.zones, mapZone{fields: fields, entryDepth: len(c.scopes)})
+	defer func() { c.zones = c.zones[:len(c.zones)-1] }()
+
+	var keyFns, valFns []func(*Env) Value
+	for _, me := range entries {
+		exprs := me.AllExpression()
+		// Bare identifier as map key → string key (JS-like shorthand)
+		keyText := exprs[0].GetText()
+		if isIdentifierKey(keyText) {
+			k := keyText
+			keyFns = append(keyFns, func(env *Env) Value { return StringValue(k) })
+		} else {
+			kFn, err := c.compileExpression(exprs[0])
 			if err != nil {
 				return nil, err
 			}
-			valFns = append(valFns, vFn)
+			keyFns = append(keyFns, kFn)
 		}
+		vFn, err := c.compileExpression(exprs[1])
+		if err != nil {
+			return nil, err
+		}
+		valFns = append(valFns, vFn)
 	}
 	tok := ctx.GetStart()
 	line, col := tok.GetLine(), tok.GetColumn()
@@ -708,6 +972,22 @@ func (c *compiler) compileMapLiteral(ctx *ast.MapLiteralContext) (func(*Env) Val
 		}
 		return MapValue(m)
 	}, nil
+}
+
+// staticMapKey 提取 map entry 的静态 key（标识符简写或字符串字面量）。
+func staticMapKey(me *ast.MapEntryContext) (string, bool) {
+	exprs := me.AllExpression()
+	if len(exprs) == 0 {
+		return "", false
+	}
+	text := exprs[0].GetText()
+	if isIdentifierKey(text) {
+		return text, true
+	}
+	if len(text) >= 2 && text[0] == '"' && text[len(text)-1] == '"' {
+		return unescapeString(text[1 : len(text)-1]), true
+	}
+	return "", false
 }
 
 // isIdentifierKey 判断文本是否为合法标识符（用于 map 字面量的 bare identifier key 简写）。
@@ -795,8 +1075,9 @@ func (c *compiler) compileLambda(ctx *ast.LambdaExpressionContext) (func(*Env) V
 		return nil, err
 	}
 
-	// lambda 体在新的作用域编译，参数名在新作用域内 declare
-	c.pushScope()
+	// lambda 体在新的作用域编译，参数名在新作用域内 declare。
+	// 标记为 lambda 层：隐式 this 改写只作用于延迟求值位置。
+	c.pushScope(true)
 	for _, p := range params {
 		c.declare(p)
 	}
@@ -860,8 +1141,12 @@ func (c *compiler) compileLambdaBody(ctx *ast.LambdaBodyContext) (func(*Env) Val
 
 // compileIf 编译 if/else 语句。if 本身不产生值（返回 NullValue）。
 // then/else 分支是 statement，可能是 block 或单语句。
+// 条件必须是 bool（与 &&/||/! 的类型检查一致），非 bool 为运行时错误。
 func (c *compiler) compileIf(ctx ast.IIfStatementContext) (func(*Env) Value, error) {
-	condFn, err := c.compileExpression(ctx.Expression())
+	condCtx := ctx.Expression().(*ast.ExpressionContext)
+	tok := condCtx.GetStart()
+	line, col := tok.GetLine(), tok.GetColumn()
+	condFn, err := c.compileExpression(condCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -878,7 +1163,11 @@ func (c *compiler) compileIf(ctx ast.IIfStatementContext) (func(*Env) Value, err
 		}
 	}
 	return func(env *Env) Value {
-		if condFn(env).b {
+		cv := condFn(env)
+		if !cv.IsBool() {
+			panic(evalErrorf(line, col, "if condition must be bool, got %s", kindName(cv)))
+		}
+		if cv.b {
 			if thenFn != nil {
 				return thenFn(env)
 			}
@@ -901,7 +1190,7 @@ func (c *compiler) compileFor(ctx ast.IForStatementContext) (func(*Env) Value, e
 	}
 
 	// 循环体在新的子作用域编译
-	c.pushScope()
+	c.pushScope(false)
 	// 声明循环变量（在循环体作用域内）
 	for _, id := range ids {
 		c.declare(id.GetText())
@@ -975,7 +1264,7 @@ func (c *compiler) compileBlock(ctx ast.IBlockContext) (func(*Env) Value, error)
 	if ctx.BlockStatements() == nil {
 		return nil, nil
 	}
-	c.pushScope()
+	c.pushScope(false)
 	fn, err := c.compileBlockStatements(ctx.BlockStatements())
 	c.popScope()
 	if err != nil {

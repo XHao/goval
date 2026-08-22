@@ -1,28 +1,33 @@
 package eval
 
 import (
-	"github.com/antlr4-go/antlr/v4"
 	"github.com/XHao/goval/internal/ast"
+	"github.com/antlr4-go/antlr/v4"
 )
 
 // CompileString 是测试用便捷入口：源码字符串 → 闭包树。
-func CompileString(source string) (func(*Env) Value, error) {
+// globals 追加到根作用域的已知名字（如 context 注入的变量名），
+// 供严格赋值检查在编译期识别可更新的绑定。
+func CompileString(source string, globals ...string) (func(*Env) Value, error) {
 	input := antlr.NewInputStream(source)
 	lexer := ast.NewRuleExprLexer(input)
 	stream := antlr.NewCommonTokenStream(lexer, antlr.TokenDefaultChannel)
 	parser := ast.NewRuleExprParser(stream)
 	tree := parser.Program()
-	return Compile(tree)
+	return Compile(tree, globals...)
 }
 
 // Compile 遍历 parse tree，产出闭包树。
-// 内置函数名注册到根作用域，阻止用户用同名 var 重绑定。
-func Compile(tree ast.IProgramContext) (func(*Env) Value, error) {
+// 内置函数名与 rootGlobals 注册到根作用域：裸赋值的目标必须已绑定，
+// 防止拼写错误静默创建新变量（v2 严格赋值）。
+func Compile(tree ast.IProgramContext, rootGlobals ...string) (func(*Env) Value, error) {
 	c := &compiler{
-		scopes: []map[string]bool{{}}, // 根作用域
+		scopes: []scopeInfo{{names: map[string]bool{}, isLambda: false}}, // 根作用域
 	}
-	// 注册内置函数名到根作用域（不计入用户变量重绑定检查）
 	for name := range defaultBuiltins() {
+		c.currentScope()[name] = true
+	}
+	for _, name := range rootGlobals {
 		c.currentScope()[name] = true
 	}
 	fn, err := c.compileProgram(tree)

@@ -35,6 +35,27 @@ func callLambda(l *Lambda, args []Value) Value {
 	return l.body(callEnv)
 }
 
+// callValueWithReceiver 以方法调用语义调用 lambda：在参数层同时绑定 this。
+// builtin 函数不接收 this。供 obj.method(args) 编译路径使用。
+func callValueWithReceiver(callee Value, recv Value, args []Value) Value {
+	if callee.IsBuiltin() {
+		return callee.builtin(args)
+	}
+	if !callee.IsLambda() {
+		panic(evalErrorf(0, 0, "cannot call %s", kindName(callee)))
+	}
+	l := callee.fn
+	if len(args) != len(l.params) {
+		panic(evalErrorf(0, 0, "expected %d args, got %d", len(l.params), len(args)))
+	}
+	callEnv := NewEnv(l.env)
+	callEnv.Set("this", recv)
+	for i, p := range l.params {
+		callEnv.Set(p, args[i])
+	}
+	return l.body(callEnv)
+}
+
 func builtinReduce() Value {
 	return builtin("reduce", func(args []Value) Value {
 		lst := args[0]

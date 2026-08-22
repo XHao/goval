@@ -71,6 +71,9 @@ func eqValues(l, r Value) bool {
 		return l.s == r.s
 	case kindNull:
 		return true
+	case kindLambda:
+		// 同一闭包恒等：f == f 为 true；不同闭包即使源码相同也不等。
+		return l.fn == r.fn
 	}
 	return false
 }

@@ -17,11 +17,9 @@ func TestLambda(t *testing.T) {
 		assertEval(t, "((x) -> { var t = x * 2; t })(5)", int64(10))
 		assertEval(t, "((x) -> { var t = x + 1; t })(5)", int64(6))
 	})
-	t.Run("block_body_compound_tail_known_bug", func(t *testing.T) {
-		// 已知缺陷：lambda 块体尾表达式为复合运算（如 t + 1）时，
-		// 返回值错误（得 1 而非 6）。对比顶层表达式块 { var t=5*2; t+1 } 正常。
-		// 待实现修复后移除此 skip。
-		t.Skip("已知缺陷：lambda 块体复合运算尾表达式返回错误")
+	t.Run("block_body_compound_tail", func(t *testing.T) {
+		// 块体尾表达式为复合运算时必须整体作为返回值
+		// （依赖 expressionBlock 的非贪婪语句循环，回归钉死）
 		assertEval(t, "((x) -> { var t = x; t + 1 })(5)", int64(6))
 	})
 	t.Run("closure_capture", func(t *testing.T) {

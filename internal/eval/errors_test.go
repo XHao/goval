@@ -25,16 +25,20 @@ func TestErrors(t *testing.T) {
 		// ~true：非 int
 		assertEvalError(t, "~true", "int")
 	})
-	t.Run("rebind_same_scope", func(t *testing.T) {
-		// 单赋值：同作用域重绑定应编译报错
-		assertEvalError(t, "var x = 1; var x = 2", "rebind")
+	t.Run("redeclare_same_scope", func(t *testing.T) {
+		// 同作用域 var 重复声明应编译报错
+		assertEvalError(t, "var x = 1; var x = 2", "already declared")
 	})
-	// 字段/下标赋值拒绝见 syntax 包测试：
-	// CompileString 用 ANTLR 默认错误策略，parse 错误只打印不返回 error，
-	// 故无法在 eval 层断言；syntax 包的 SyntaxChecker 有 error listener 可捕获。
-	t.Run("reassign_rejected", func(t *testing.T) {
-		// 单赋值：x = expr 重绑定外部变量
-		assertEvalError(t, "var x = 1; x = 2", "rebind")
+	t.Run("reassign_updates_value", func(t *testing.T) {
+		// v2：赋值更新已声明变量
+		assertEval(t, "var x = 1; x = 2; x", int64(2))
+	})
+	t.Run("assign_undeclared_rejected", func(t *testing.T) {
+		// v2 严格赋值：裸赋值要求目标已声明（防拼写错误静默建新变量）
+		assertEvalError(t, "x = 2", "undefined variable 'x'")
+	})
+	t.Run("assign_undeclared_typo_rejected", func(t *testing.T) {
+		assertEvalError(t, "var userId = 1; usreId = 2", "undefined variable 'usreId'")
 	})
 	t.Run("undeclared_variable", func(t *testing.T) {
 		// 引用未声明变量

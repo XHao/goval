@@ -12,9 +12,7 @@ func TestEvaluateErrorPropagation(t *testing.T) {
 		name string
 		src  string
 	}{
-		// 解析错误：左值限制（字段/下标赋值被语法拒绝）
-		{"field_assignment", `var p = {"n": 1}; p.n = 2`},
-		{"element_assignment", "var l = [1]; l[0] = 2"},
+		// v2：字段/下标赋值合法（见 TestV2Mutation）；此处只保留仍被拒绝的输入。
 		// 解析错误：不支持的运算符（复合赋值/自增）
 		{"compound_assignment", "var x = 1; x += 1"},
 		{"increment", "var x = 1; x++"},
@@ -27,8 +25,13 @@ func TestEvaluateErrorPropagation(t *testing.T) {
 		// 语义错误：break/continue 只允许出现在 for 体内
 		{"break_outside_loop", "break"},
 		{"continue_outside_loop", "continue"},
-		// 编译错误：单赋值
-		{"rebind", "var y = 1; y = 2"},
+		// 编译错误：v2 严格赋值——裸赋值要求目标已声明
+		{"assign_undeclared", "y = 2"},
+		{"assign_typo", "var userId = 1; usreId = 2"},
+		// 编译错误：非法左值（调用结果不可赋值）
+		{"assign_to_call_result", "var f = () -> 1; f() = 2"},
+		// 运行时错误：分离方法无 this
+		{"detached_method_this", `var P = (n) -> { n: n, g: () -> n }; var p = P("a"); var g = p.g; g()`},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

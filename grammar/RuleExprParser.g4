@@ -111,20 +111,28 @@ expression
     : assignmentExpression
     ;
 
-// 不可变铁律：左值只能是标识符
+// 赋值：左值为 postfix 表达式（标识符 / 字段 / 下标），形状在编译期校验
 assignmentExpression
     : lambdaExpression
     | conditionalExpression
     | assignment
     ;
 
+// 赋值左值的合法形状：标识符 / base.field / base[index]。
+// 收窄成显式三形而非泛化 postfixExpression：否则 `l[0] = 9` 会歧义解析成
+// 语句 `l` + 语句 `[0] = 9`（[0] 被当列表字面量左值）。裸字面量左值
+// 在语法层即不可解析，语句边界歧义随之消失。
 assignment
     : Identifier ASSIGN expression
+    | postfixExpression DOT Identifier ASSIGN expression
+    | postfixExpression LBRACK expression RBRACK ASSIGN expression
     ;
 
+// 三元：colon 分支放宽为完整 expression，允许 else 分支裸写赋值
+// （then 分支本就是 expression）。右结合经 expression → conditionalExpression 保持。
 conditionalExpression
     : conditionalOrExpression
-    | conditionalOrExpression QUESTION expression COLON conditionalExpression
+    | conditionalOrExpression QUESTION expression COLON expression
     ;
 
 conditionalOrExpression
@@ -213,6 +221,9 @@ primary
     | listLiteral
     | mapLiteral
     | expressionBlock
+    | THIS
+    | CAPTURE mapLiteral      // capture { ... }：关闭隐式 this 改写（纯编译期 pragma）
+    | CAPTURE lambdaExpression // capture (a) -> ...：同上，作用于单个 lambda
     ;
 
 argumentList

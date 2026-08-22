@@ -1,14 +1,15 @@
 package syntax
 
 import (
-	"github.com/antlr4-go/antlr/v4"
 	"github.com/XHao/goval/internal/ast"
 	"github.com/XHao/goval/internal/common"
+	"github.com/antlr4-go/antlr/v4"
 )
 
 // checkSemantics performs post-parse semantic validation:
 //   - break/continue 只能在 for 体内
 //   - lambda 块体 / expressionBlock 末尾必须是表达式
+//
 // 返回第一个发现的语义错误，或 nil。
 func checkSemantics(tree ast.IProgramContext) error {
 	v := &semanticVisitor{

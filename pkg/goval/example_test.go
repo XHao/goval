@@ -49,7 +49,7 @@ func ExampleEvaluate_context() {
 	rule := "amount >= threshold ? amount * discount : amount"
 
 	ctx := map[string]interface{}{
-		"amount":   int64(300),
+		"amount":    int64(300),
 		"threshold": int64(100),
 		"discount":  float64(0.9),
 	}

@@ -27,14 +27,12 @@ func TestControlFlow(t *testing.T) {
 		assertEval(t, "if (false) { 1 } else if (false) { 2 } else { 3 }", int64(3))
 		assertEval(t, "if (true) { 1 } else if (true) { 2 } else { 3 }", int64(1))
 	})
-	t.Run("if_rebind_rejected", func(t *testing.T) {
-		// 单赋值：if 内重赋值外部变量应编译报错
-		assertEvalError(t, `var x = 5; var a = 0; if (x > 3) { a = 100 }`, "rebind")
+	t.Run("if_assign_outer", func(t *testing.T) {
+		// v2：if 内赋值外部变量合法，沿链写入外层绑定
+		assertEval(t, `var x = 5; var a = 0; if (x > 3) { a = 100 }; a`, int64(100))
 	})
 
-	// for 循环：goval 单赋值语义下，循环体内不能重赋值外部变量，
-	// 因此无法在循环体内累加结果到外部。for 的行为验证依赖 reduce/map/filter
-	// （它们内部实现累加）。这里验证 for 的语法合法性、迭代绑定、局部作用域。
+	// for 循环：v2 允许循环体内赋值外部变量，可直接累加结果。
 	t.Run("for_in_list_local_var", func(t *testing.T) {
 		// 循环体内声明局部变量合法；每轮新作用域
 		assertEval(t, `for x in [1, 2, 3] { var local = x }; 0`, int64(0))
@@ -52,9 +50,17 @@ func TestControlFlow(t *testing.T) {
 		// v + 1 不报错即证明 v 绑定的是 value(int) 而非 key(string)。
 		assertEval(t, `for k, v in {"a": 1, "b": 2} { var kk = k; var sum = v + 1 }; 0`, int64(0))
 	})
-	t.Run("for_rebind_rejected", func(t *testing.T) {
-		// 循环体内重赋值外部变量应编译报错
-		assertEvalError(t, "var s = 0; for x in [1,2] { s = s + x }", "rebind")
+	t.Run("for_accumulate_outer_var", func(t *testing.T) {
+		// v2：循环体内累加外部变量（原单赋值下的典型禁区）
+		assertEval(t, "var s = 0; for x in [1,2,3] { s = s + x }; s", int64(6))
+	})
+	t.Run("for_break_early_accumulate", func(t *testing.T) {
+		// break 提前终止 + 累加：只加到 2
+		assertEval(t, "var s = 0; for x in [1,2,3,4] { if (x == 3) { break }; s = s + x }; s", int64(3))
+	})
+	t.Run("for_continue_skip", func(t *testing.T) {
+		// continue 跳过本轮：不加 2
+		assertEval(t, "var s = 0; for x in [1,2,3] { if (x == 2) { continue }; s = s + x }; s", int64(4))
 	})
 	t.Run("for_iteration_via_reduce", func(t *testing.T) {
 		// 间接验证 for-in 遍历顺序：用 reduce 累加（reduce 内部处理累加）
@@ -65,9 +71,7 @@ func TestControlFlow(t *testing.T) {
 		assertEval(t, "map([1, 2, 3], x -> x * 10)", []interface{}{int64(10), int64(20), int64(30)})
 	})
 
-	// break/continue：验证在循环体内合法、不 panic。
-	// 单赋值下无法验证 break 的「提前终止」副作用（无法累加到外部），
-	// 故仅验证语法合法性与求值不报错。
+	// break/continue：在循环体内合法；提前终止/跳过的副作用见上方 accumulate 用例。
 	t.Run("break_compiles", func(t *testing.T) {
 		assertEval(t, `for x in [1, 2, 3] { if (x == 2) { break } }; 0`, int64(0))
 	})

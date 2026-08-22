@@ -31,8 +31,8 @@ func TestValidity(t *testing.T) {
 	})
 	t.Run("lambda", func(t *testing.T) {
 		assertValid(t, "(a, b) -> a + b;")
-		assertValid(t, "x -> x + 1;")        // 单参无括号
-		assertValid(t, "() -> 42;")          // 零参
+		assertValid(t, "x -> x + 1;")              // 单参无括号
+		assertValid(t, "() -> 42;")                // 零参
 		assertValid(t, "(x) -> { var t = x; t };") // 块体
 	})
 	t.Run("control_flow", func(t *testing.T) {
@@ -61,16 +61,24 @@ func TestValidity(t *testing.T) {
 		assertValid(t, "/* block */ var x = 1;")
 	})
 
-	// 被拒绝
-	t.Run("field_write_rejected", func(t *testing.T) {
-		assertInvalid(t, "p.name = 1;")
+	// v2：字段/下标赋值是合法语法（形状在编译期校验）
+	t.Run("field_write_valid", func(t *testing.T) {
+		assertValid(t, "p.name = 1;")
 	})
-	t.Run("index_write_rejected", func(t *testing.T) {
-		assertInvalid(t, "lst[0] = 1;")
+	t.Run("index_write_valid", func(t *testing.T) {
+		assertValid(t, "lst[0] = 1;")
+	})
+	t.Run("nested_field_write_valid", func(t *testing.T) {
+		assertValid(t, "a.b.c = 1;")
+	})
+	t.Run("this_and_capture", func(t *testing.T) {
+		assertValid(t, "this.name;")
+		assertValid(t, "capture { a: 1 };")
+		assertValid(t, "var f = capture (a) -> a + 1;")
 	})
 	t.Run("removed_operators", func(t *testing.T) {
-		assertInvalid(t, "x++;")   // ++ 已移除
-		assertInvalid(t, "x--;")   // -- 已移除
+		assertInvalid(t, "x++;")    // ++ 已移除
+		assertInvalid(t, "x--;")    // -- 已移除
 		assertInvalid(t, "x += 1;") // 复合赋值已移除
 		assertInvalid(t, "x -= 1;")
 	})

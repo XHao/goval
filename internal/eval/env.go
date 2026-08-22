@@ -2,7 +2,7 @@ package eval
 
 // Env 是不可变作用域链。单赋值语义下，Define 返回新节点，不修改原 Env。
 type Env struct {
-	vars  map[string]Value
+	vars   map[string]Value
 	parent *Env
 }
 
@@ -38,7 +38,19 @@ func (e *Env) Define(name string, v Value) *Env {
 }
 
 // Set 直接写入当前层，给顶层语句序列用。
-// 单赋值编译期检查保证安全：同一变量不会被二次赋值。
 func (e *Env) Set(name string, v Value) {
 	e.vars[name] = v
+}
+
+// Assign 沿父链查找已存在的绑定并写入（v2 赋值语义）。
+// 找到返回 true；整条链都没有该名字时返回 false。
+func (e *Env) Assign(name string, v Value) bool {
+	if _, ok := e.vars[name]; ok {
+		e.vars[name] = v
+		return true
+	}
+	if e.parent != nil {
+		return e.parent.Assign(name, v)
+	}
+	return false
 }

@@ -11,7 +11,11 @@ import (
 // evalResult 编译并求值 src，返回 Value 与 error（求值期 panic 转为 error）。
 func evalResult(t *testing.T, src string, ctx map[string]Value) (v Value, err error) {
 	t.Helper()
-	fn, cerr := CompileString(src)
+	globals := make([]string, 0, len(ctx))
+	for name := range ctx {
+		globals = append(globals, name)
+	}
+	fn, cerr := CompileString(src, globals...)
 	if cerr != nil {
 		return Value{}, cerr
 	}

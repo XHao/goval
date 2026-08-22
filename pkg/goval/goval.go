@@ -38,7 +38,13 @@ func Evaluate(source string, context map[string]interface{}) (result interface{}
 		return nil, err
 	}
 
-	fn, err := eval.Compile(tree)
+	// context 的键名传入编译器根作用域：裸赋值目标必须已绑定（严格赋值检查）
+	globals := make([]string, 0, len(context))
+	for name := range context {
+		globals = append(globals, name)
+	}
+
+	fn, err := eval.Compile(tree, globals...)
 	if err != nil {
 		return nil, err
 	}

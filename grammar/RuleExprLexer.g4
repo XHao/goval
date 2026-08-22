@@ -17,6 +17,8 @@ FOR      : 'for';
 IF       : 'if';
 IN       : 'in';
 VAR      : 'var';
+THIS     : 'this';
+CAPTURE  : 'capture';
 
 // Integer Literals
 IntegerLiteral
