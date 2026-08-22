@@ -11,11 +11,12 @@ A lightweight expression language designed for embedding in Go applications, wit
 ## Features
 
 - 🚀 **Closure-Tree Evaluator**: Source compiles to `func(*Env) Value` once, evaluates many times — ideal for rule engines that apply the same rule to large datasets
-- 🔒 **Fully Immutable**: Single-assignment variables, immutable objects and containers — rules are pure functions, safe for concurrent evaluation
-- 🏗️ **Objects via Lambda Factories**: No `struct` keyword — objects are Maps returned by lambda factories, with methods as closures capturing construction parameters
-- 🔍 **Lambda & Closures**: First-class lambda expressions with lexical closure capture
-- 📦 **Containers**: List and Map literals (`[1, 2, 3]`, `{"key": value}`), with immutable operations via builtins (`append`, `put`, `reduce`, `map`, `filter`, `find`)
-- ⚡ **Minimal Syntax**: `if/else`, `for-in`, `var` — only the keywords a rule engine needs
+- 🔒 **Sandboxed & Host-Isolated**: No I/O; context data is deep-copied in and out — scripts can never touch caller-owned Go data
+- 🏗️ **Objects via Lambda Factories**: No `struct` keyword — objects are Maps returned by lambda factories; `this` is bound at method-call sites, with implicit field access in method bodies
+- 🔍 **Lambda & Closures**: First-class lambdas with reference capture, per-iteration loop capture, and a `capture` pragma for pure closure semantics
+- ✏️ **Mutable with Guard Rails**: Variables reassign freely (loop accumulation just works); fields/elements are written in place; strict assignment rejects typos at compile time
+- 📦 **Containers**: List and Map literals (`[1, 2, 3]`, `{"key": value}`) with in-place writes plus pure builtins (`append`, `put`, `reduce`, `map`, `filter`, `find`)
+- ⚡ **Minimal Syntax**: `if/else`, `for-in`, `var`, `this`, `capture` — only the keywords a rule engine needs
 - 🔧 **Go Integration**: `Evaluate(source, context)` API with automatic Go ↔ goval value conversion
 
 ## Quick Start
@@ -62,11 +63,12 @@ func main() {
 
 ## Language Overview
 
-### Variables (single assignment)
+### Variables (reassignable, strictly declared)
 
 ```goval
-var x = 10        // bind once, cannot rebind
-var s = "hello"   // type inferred from initializer
+var x = 10        // declare (type inferred)
+x = x + 5         // reassign — updates the nearest binding
+typo = 1          // ERROR: assignments require a prior 'var' declaration
 ```
 
 ### Operators
@@ -76,18 +78,20 @@ Arithmetic (`+ - * / %`), comparison (`< > <= >= == != in`), logical (`&& || !`)
 ### Lambda & Objects
 
 ```goval
-// Lambda with closure capture
+// Lambda with reference capture
 var adder = (base) -> (x) -> base + x
 adder(10)(5)  // 15
 
-// Object = lambda factory + Map literal
+// Object = lambda factory + Map literal; methods see fields via this
 var Order = (amount, userId) -> {
     amount: amount,
     userId: userId,
-    discounted: (rate) -> amount * rate
+    discounted: (rate) -> amount * rate,     // implicit this.amount
+    double: () -> { amount = amount * 2; amount }  // writes the field
 }
 var o = Order(500, "u1")
 o.discounted(0.8)  // 400
+o.double()         // 1000 — o.amount updated
 ```
 
 ### Control Flow
@@ -96,8 +100,9 @@ o.discounted(0.8)  // 400
 // if / else
 if (x > 0) { ... } else { ... }
 
-// for-in (traversal only; no rebinding of outer variables)
-for item in lst { ... }
+// for-in — loop bodies can accumulate into outer variables
+var total = 0
+for item in lst { total = total + item }
 for k, v in map { ... }
 ```
 
@@ -115,7 +120,7 @@ for k, v in map { ... }
 | `len(v)` | Length of list/string/map |
 | `range(start, end)` | Integer list `[start, end)` |
 
-All container operations return new values — originals are never mutated.
+Builtins are pure — they return new values. In-place mutation uses field/element assignment (`lst[0] = 9`, `m["k"] = v`, `p.field = x`).
 
 ## Documentation
 
@@ -131,8 +136,8 @@ Source → [ANTLR4 Parser] → Parse Tree → [Compiler] → Closure Tree (func(
 ```
 
 - **Parser**: ANTLR4-generated lexer/parser (`grammar/`, `internal/ast/`)
-- **Syntax Checker**: `internal/syntax` — parse + semantic validation (single-assignment, break/continue scope)
-- **Evaluator**: `internal/eval` — closure-tree compiler, immutable Env, built-in functions
+- **Syntax Checker**: `internal/syntax` — parse + semantic validation (break/continue scope)
+- **Evaluator**: `internal/eval` — closure-tree compiler, scope-chain Env, implicit-`this` rewriting, built-in functions
 - **Public API**: `pkg/goval` — `Evaluate(source, context)` with Go value conversion
 
 ## License

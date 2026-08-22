@@ -2,9 +2,9 @@
 
 ## Overview
 
-Goval is a lightweight expression language implemented in Go, designed for embedding in Go applications. It targets **rule engine** scenarios: pure-expression evaluation with immutable objects, lambdas, and minimal control flow.
+Goval is a lightweight expression language implemented in Go, designed for embedding in Go applications. It targets **rule engine** scenarios: expression evaluation with lambda-based objects and minimal control flow.
 
-Goval deliberately drops general-purpose scripting features — there are no structs, no `switch`, no `return`, no type annotations, and no mutable container syntax. Custom "types" are expressed as **lambda factories** returning Map literals; all objects and containers are **immutable** once constructed.
+Goval deliberately drops general-purpose scripting features — there are no structs, no `switch`, no `return`, no type annotations. Custom "types" are expressed as **lambda factories** returning Map literals. Variables can be reassigned and object fields / container elements can be written in place (v2 semantics), while the language stays sandboxed: no I/O, and host data is deep-copied on the way in and out.
 
 This document describes the syntax rules of the Goval language in detail, including lexical structure, grammar, semantics, and usage. All behavior described here is verified by the test suite in `internal/eval`, `internal/syntax`, and `pkg/goval`.
 
@@ -15,12 +15,14 @@ This document describes the syntax rules of the Goval language in detail, includ
 Goval defines the following keywords, which cannot be used as identifiers:
 
 ```
-break, continue, else, for, if, in, null, var
+break, continue, else, for, if, in, null, var, this, capture
 ```
 
 plus the boolean literals `true` and `false`.
 
-The following keywords from the legacy grammar have been **removed** and are no longer reserved: `struct`, `this`, `return`, `switch`, `case`, `default`, `Set`, and all primitive type keywords (`boolean`, `byte`, `char`, `short`, `int`, `long`, `float`, `double`, `string`, `List`, `Map`). These words are now ordinary identifiers. Types are inferred via `var`; containers use literal syntax only.
+`this` is bound at method-call sites (see [Objects](#objects-lambda-factory--map-literal)); `capture` is a compile-time pragma that disables implicit-`this` rewriting (see [Lambda Expressions](#lambda-expressions)).
+
+The following keywords from the legacy grammar have been **removed** and are no longer reserved: `struct`, `return`, `switch`, `case`, `default`, `Set`, and all primitive type keywords (`boolean`, `byte`, `char`, `short`, `int`, `long`, `float`, `double`, `string`, `List`, `Map`). These words are now ordinary identifiers. Types are inferred via `var`; containers use literal syntax only.
 
 ### Literals
 
@@ -100,7 +102,7 @@ Examples: `x`, `_tmp`, `$value`, `用户`, `名前`.
 =
 ```
 
-Only simple assignment (`=`) is supported. Compound assignment operators (`+=`, `-=`, `*=`, `/=`, `%=`, `&=`, `|=`, `^=`, `<<=`, `>>=`) and increment/decrement operators (`++`, `--`) are **not supported** — they are rejected by the parser.
+Only simple assignment (`=`) is supported. The left-hand side may be a bare identifier, a field access (`p.name = ...`), or a subscript (`lst[i] = ...`, `m["k"] = ...`) — see [Assignment Semantics](#assignment-semantics-v2). Compound assignment operators (`+=`, `-=`, `*=`, `/=`, `%=`, `&=`, `|=`, `^=`, `<<=`, `>>=`) and increment/decrement operators (`++`, `--`) are **not supported** — they are rejected by the parser.
 
 #### Arithmetic Operators
 ```
@@ -143,7 +145,7 @@ Operands must be `int` (`int64`); otherwise a runtime error. `~` is unary bitwis
 ```
 
 - `->` lambda arrow.
-- `? :` ternary conditional.
+- `? :` ternary conditional. Both branches are full expressions — assignments may appear bare in either branch (`cond ? x = 1 : y = 2`). The ternary is right-associative.
 - `.` field access (Map lookup).
 - `[]` subscript access.
 - `()` function/method call / grouping.
@@ -180,7 +182,7 @@ Examples:
 (, ), {, }, [, ], ;, ,, .
 ```
 
-Semicolons (`;`) are **optional** — statements may be separated by newlines or semicolons.
+Semicolons (`;`) are **optional** — statements may be separated by newlines or semicolons. Note that newlines are plain whitespace, not automatic statement terminators: if a line **starts with `[` or `(`**, it continues the previous expression (e.g. `var a = [1]` followed by `[2]` parses as `a = [1][2]`). Write a semicolon at the end of such lines.
 
 ### Comments
 
@@ -236,30 +238,37 @@ var x = 1, y = 2, z = 3;
 
 Static type declarations (`int a = 1;`, `string name = "Goval";`) and type annotations on parameters are **not supported** — use `var` for all declarations.
 
-### Assignment and Single-Assignment Semantics
+### Assignment Semantics (v2)
 
-Goval enforces **single assignment**: a variable can be bound at most once. Once a name is bound (via `var` or `=`), any subsequent assignment to the same name is a compile-time error.
-
-The left-hand side of an assignment **must be a bare identifier**. Field assignment (`p.name = ...`) and element assignment (`lst[i] = ...`, `m["k"] = ...`) are **syntactically rejected** by the parser.
-
-```
-x = 20;              // OK — first binding of x (equivalent to var x = 20)
-result = x + 1;      // OK — first binding of result
-
-var y = 1;
-y = 2;               // ERROR — cannot rebind variable 'y' (single assignment)
-```
-
-**Important consequence:** because reassignment is forbidden, a loop body **cannot accumulate results into an outer variable**. For example, this is a compile error:
+Goval allows **reassignment**: a variable declared with `var` can be updated afterwards. An assignment writes to the nearest enclosing binding of the name (walking the scope chain), so assignments inside blocks, `if` branches, and loop bodies update outer variables:
 
 ```
 var s = 0;
 for x in [1, 2, 3] {
-    s = s + x        // ERROR: cannot rebind 's'
+    s = s + x        // OK — updates the outer s (s == 6 after the loop)
 }
 ```
 
-To aggregate values across a loop, use the built-in functions `reduce`, `map`, `filter`, which handle accumulation internally and return a new value.
+**Strict assignment:** the target of a bare `x = ...` must already be bound (via `var`, an enclosing scope, the embedding context, or a builtin). Assigning to an undeclared name is a **compile-time error** — this catches typos that would otherwise silently create a new variable:
+
+```
+var userId = 1;
+usreId = 2;           // ERROR — undefined variable 'usreId'
+```
+
+**Field and element assignment** are supported in place:
+
+```
+p.name = "bob";       // writes the Map field
+lst[0] = 9;           // writes the List element (bounds-checked)
+m["k"] = 1;           // writes the Map entry (key must be a string)
+a.b.c = 3;            // nested chains work
+```
+
+- Strings are immutable: `s[0] = 'x'` is a runtime error.
+- Assignments are **expressions** — they evaluate to the assigned value (`var y = (x = 5) + 1`).
+
+Assignment targets must be identifiers, field accesses, or subscripts; assigning to a call result (`f() = 1`) is rejected.
 
 ### Control Flow
 
@@ -274,7 +283,7 @@ if (condition) {
 }
 ```
 
-The `else` clause is optional. Each branch introduces its own scope. `if` is a statement and does not produce a value. `switch`/`case`/`default` are **not supported** — use `if`/`else if` chains instead.
+The `else` clause is optional. Each branch introduces its own scope. `if` is a statement and does not produce a value. The condition **must be `bool`** — anything else is a runtime error (consistent with `&&`/`||`/`!`). `switch`/`case`/`default` are **not supported** — use `if`/`else if` chains instead.
 
 #### For-In Loop
 
@@ -312,53 +321,82 @@ A single-identifier form `for k in map` binds `k` to each key (string).
 
 `break` and `continue` are only legal inside a `for` body; using them elsewhere is a semantic error. `return` is **not supported** — lambdas and expression blocks return their trailing expression (see [Expression Blocks](#expression-blocks)).
 
-### Immutability Rules
+### Mutation Rules (v2)
 
-Goval enforces a **fully immutable** model for objects and containers:
-
-1. **Object fields are read-only.** Once a Map-based object is constructed, its fields cannot be reassigned. `p.name = "x"` is a syntax error.
-2. **Container elements are read-only.** `lst[i] = ...` and `m["k"] = ...` are syntax errors.
-3. **Single assignment.** A local variable can be bound at most once. Reassignment (`x = ...` after `x` is already bound) is a compile-time error. The only writable target is a bare identifier being bound for the first time.
-4. **Container modification goes through built-in functions** that return new containers, leaving the original unchanged:
-
-```
-var lst2 = append(lst, x)        // returns a new List; lst is unchanged
-var m2 = put(m, "k", v)          // returns a new Map
-var lst3 = removeAt(lst, 0)      // returns a new List without the element at index 0
-```
-
-5. **No `this`, no `return`.** Methods are lambdas that capture constructor parameters via closure; they never reference the enclosing object itself. Lambdas return the value of their body's trailing expression.
+1. **Variables can be reassigned.** `x = ...` updates the nearest enclosing binding; a loop body can accumulate into an outer variable. Redeclaring the same name with `var` in the *same* scope is still an error (inner scopes may shadow).
+2. **Object fields are writable in place.** `p.name = "x"` writes the Map entry; `p["name"] = "x"` is equivalent.
+3. **Container elements are writable in place.** `lst[i] = ...` (bounds-checked) and `m["k"] = ...`. Aliases share the container: `var b = a; a[0] = 9; b[0]` → `9`. Strings are immutable.
+4. **Host data is isolated.** Context values are deep-copied on injection and on return — scripts can never mutate caller-owned Go data.
+5. **No `return`.** Methods are lambdas; they return their trailing expression. Mutation happens through field/element assignment and through the pure built-ins (`append`, `put`, ...) which still return new containers.
 
 ### Objects: Lambda Factory + Map Literal
 
-Custom "types" need no dedicated syntax. A type is a **factory function** that returns a Map literal: fields are Map keys, methods are closure values.
+Custom "types" need no dedicated syntax. A type is a **factory function** that returns a Map literal: fields are Map keys, methods are lambda values.
 
 ```
 var Person = (name, age) -> {
     name: name,
     age: age,
-    greet: () -> "hi " + name      // closure captures constructor param; no `this`
+    greet: () -> "hi " + name,              // implicit this — see below
+    birthday: () -> { age = age + 1; age }, // writes the FIELD, p.age updates
+    olderThan: (o) -> age > o.age
 }
 
 var p = Person("alice", 30)
-p.name                              // "alice"  — Map lookup
-p.greet()                           // "hi alice" — fetch lambda, then call
+p.greet()          // "hi alice"
+p.birthday()       // 31
+p.age              // 31 — field and method views always agree
+p.olderThan(Person("bob", 20))   // true
 ```
 
-- Accessing `p.name` is a Map lookup; `p.greet()` is fetching the lambda value and invoking it. Both are the standard `.identifier` and `.identifier()` postfix forms — no special method-call rule.
-- Each call to the factory produces an independent object (its own closure, its own Map).
-- Methods capture **constructor parameters**, not the Map's current fields. This is the accepted trade-off of the immutable model: construct once, evaluate read-only, produce a result.
+#### `this` binding
 
-A method with parameters:
+`obj.method(args)` binds `this` to `obj` (the Map the method was fetched from) at the call site. `m["f"](args)` behaves identically. Consequences:
+
+- **Explicit form**: `this.name` reads/writes the receiver's field at call time.
+- **Nested lambdas** inside a method see `this` through the environment chain.
+- **`obj.other()`** works — `this` is re-bound per call to the same Map.
+- **Detached methods have no `this`**: `var g = p.greet; g()` — accessing `this` (or an implicitly rewritten field) inside the call is a runtime error, like detached functions in JavaScript.
+
+#### Implicit `this` rewriting
+
+Inside a lambda that is lexically nested in a Map literal, a bare identifier that **collides with a field name of that Map** (and is not shadowed by a parameter or local `var`) is compiled as a field access on `this` — for both reads and writes:
+
 ```
-var Calculator = (base) -> {
-    base: base,
-    add: (n) -> base + n,
-    scale: (factor, offset) -> base * factor + offset
+greet: () -> "hi " + name       // compiles to this.name
+birthday: () -> { age = age + 1; age }   // compiles to this.age = this.age + 1
+```
+
+- **Construction position is exempt**: the field initializer `name: name` reads the factory parameter (evaluated immediately at construction).
+- **Parameters and locals shadow fields**: `f: (name) -> name` uses the parameter; `var name = ...` inside a method body shadows the field.
+- The rewrite makes wrong-slot writes impossible: a field-colliding bare name *always* means the field, never a captured closure variable.
+- **Implicit `this` is lexical, explicit `this` is dynamic.** A lambda gets implicit field rewriting only if it is *written inside* the Map literal. A lambda defined elsewhere and stored into a Map later keeps pure closure semantics — `m.f()` still binds `this`, but the body only sees the receiver if it says `this.x` explicitly.
+- **Method names shadow outer bindings too.** The rewrite zone covers *all* Map keys, including methods. If a bare name collides with a sibling method's name, it becomes `this.<method>` — use `capture` (or rename) when you mean an outer function with the same name.
+- **Nested Maps resolve against the receiver.** In `{ x: 1, inner: { f: () -> x } }`, calling `M.inner.f()` rewrites `x` to `this.x` and `this` is `inner` — the missing key yields `null` (consistent with Map subscripting). Reference the outer object explicitly (`M.x`) in such cases.
+- **`capture` opts out** (see [Lambda Expressions](#lambda-expressions)): inside `capture { ... }` bare names follow pure closure semantics.
+
+#### Private state (closure objects)
+
+Variables declared in the factory body but not stored in the Map are private; only methods can reach them:
+
+```
+var Counter = (start) -> {
+    var count = start              // private — not a Map field
+    {
+        inc: () -> { count = count + 1; count },
+        value: () -> count
+    }
 }
+var c = Counter(0)
+c.inc()      // 1
+c.inc()      // 2
+c.value()    // 2
+c.count      // null — no such field
 ```
 
-> **Map bare-identifier key shorthand:** inside a Map literal, `{name: expr}` uses the identifier `name` as the string key (equivalent to `{"name": expr}`). This is the common form for object fields, as in `{ name: name, greet: () -> ... }`.
+Private state usually doesn't collide with field names, so it works without `capture`. Each factory call produces independent state (its own environment layer).
+
+> **Map bare-identifier key shorthand:** inside a Map literal, `{name: expr}` uses the identifier `name` as the string key (equivalent to `{"name": expr}`).
 
 ### Container Literals
 
@@ -410,7 +448,34 @@ Parameters are **bare identifiers** — no type annotations. The body is either 
 }
 ```
 
-A lambda captures variables from its enclosing scope by closure (capturing the value at the point of definition).
+A lambda **shares variable bindings with its defining scope** (reference capture, like JS/Python/Go):
+
+- A closure sees later modifications of the captured variable, and assignments inside the closure update the outer binding (`Env.Assign` walks the scope chain).
+- Sibling closures created in the same environment layer share its slots — this is the basis of the private-state pattern.
+- **Per-iteration capture**: each lambda *call* creates a fresh environment layer, so closures created in different loop iterations (or `map` callback invocations) capture independent bindings:
+
+```
+var fns = map(range(0, 3), (i) -> () -> i)
+[fns[0](), fns[1](), fns[2]()]     // [0, 1, 2] — not [2, 2, 2]
+```
+
+- **Recursion** works via self-reference: `var fact = (n) -> n <= 1 ? 1 : n * fact(n - 1)`.
+- **Lambda identity**: `f == f` is true for the same closure; two distinct closures with identical source are not equal.
+
+#### `capture` pragma
+
+`capture` is a **compile-time-only** prefix that disables implicit-`this` rewriting within its lexical range. Runtime behavior is identical to the wrapped expression.
+
+```
+var level = "outer"
+var P = capture { level: "field", read: () -> level }
+P.read()                            // "outer" — bare level follows closure rules
+
+var Q = { level: "field", read: () -> level }
+Q.read()                            // "field" — implicit this wins without capture
+```
+
+It can also prefix a single lambda: `capture (a) -> a + b`.
 
 ### Expression Blocks
 
@@ -428,19 +493,20 @@ The block's last element **must be an expression** (not a statement); there is n
 
 ### Postfix Access
 
-All access forms are **read-only**:
-
 ```
 p.name              // field access (Map lookup)
 lst[i]              // subscript access
 f(args)             // function call
-obj.method(args)    // method call (fetch lambda, then call)
+obj.method(args)    // method call (binds this to obj)
+m["f"](args)        // subscript call (also binds this)
 ```
 
 Subscript access `base[i]` behavior depends on the base type:
 - **List:** `i` must be an int index in `[0, len)`. Out-of-range or negative indices are a runtime error. Returns the element.
 - **Map:** `i` must be a string key. Returns the value, or `null` if the key is absent.
 - **string:** `i` must be an int index in `[0, rune-length)`. Returns a **single-character string** (not a rune integer). Out-of-range is a runtime error.
+
+Field and subscript positions are also valid **assignment targets** (see [Assignment Semantics](#assignment-semantics-v2)); string subscripting is read-only.
 
 Access chains left-associatively, so `a.b.c` and `m["a"]["b"]` work as expected.
 
@@ -460,7 +526,7 @@ Goval provides these built-in functions, available in every scope:
 | `len(v)` | `(List\|string\|Map) -> int` | Returns the length of a List, string, or Map. |
 | `range(start, end)` | `(int, int) -> List` | Returns a new List of integers `[start, start+1, ..., end-1]`. Empty if `start >= end`. |
 
-All built-ins return **new** values; they never mutate their inputs (consistent with the immutability rules).
+All built-ins return **new** values; they never mutate their inputs. In-place mutation goes through field/element assignment — the two styles coexist (pure helpers + in-place writes), mirroring Go slices/maps.
 
 ## Parser Generation
 
@@ -478,9 +544,9 @@ This regenerates the parser and visitor code in the `internal/ast` directory.
 
 The public `goval.Evaluate` runs the full pipeline — parsing, semantic checks, compilation, evaluation — and errors from any stage are returned as `error`:
 
-1. **Grammar-level** — the left side of an assignment must be a bare identifier; `.field =` and `[i] =` are parse errors. Unsupported syntax (compound assignment, `++`/`--`, C-style three-part `for`, `switch`, `return`) is likewise rejected at parse time.
+1. **Grammar-level** — assignment targets are limited to identifier / field / subscript shapes; compound assignment, `++`/`--`, C-style three-part `for`, `switch`, `return` are rejected at parse time.
 2. **Semantic checks** — the `SyntaxChecker` (in `internal/syntax`) validates the parse tree beyond what the grammar enforces: `break` and `continue` are only legal inside a `for` body.
-3. **Compile-time checks** — single assignment is enforced in the `eval` compiler: rebinding an already-declared variable is a compile-time error.
+3. **Compile-time checks** — the `eval` compiler enforces: strict assignment (bare `x = ...` requires the name to be already bound), no same-scope `var` redeclaration, and invalid assignment targets (e.g. call results).
 
 ## Embedding API
 
@@ -493,7 +559,7 @@ v, err := goval.Evaluate(source string, context map[string]interface{}) (interfa
 - `source` is a Goval program string.
 - `context` injects Go values as global variables. Supported Go types: `int`, `int64`, `float64`, `float32`, `bool`, `string`, `nil`, `[]interface{}`, `map[string]interface{}`.
 - The result is a Go native value: `int64`, `float64`, `bool`, `string`, `nil`, `[]interface{}`, or `map[string]interface{}`.
-- Errors from every stage are returned as `error` — never as a panic to the caller: syntax errors (rejected input, unsupported operators, non-identifier lvalues), semantic errors (`break`/`continue` outside a loop), compile errors (single-assignment violations), and runtime panics (e.g. division by zero, type mismatches) are all recovered and returned.
+- Errors from every stage are returned as `error` — never as a panic to the caller: syntax errors (rejected input, unsupported operators, invalid assignment targets), semantic errors (`break`/`continue` outside a loop), compile errors (strict-assignment violations, same-scope redeclaration), and runtime panics (e.g. division by zero, type mismatches) are all recovered and returned.
 
 ```go
 v, err := goval.Evaluate("1 + 2 * 3", nil)
@@ -508,7 +574,7 @@ v, err := goval.Evaluate("x > 5", ctx)
 
 ```
 // Rule: discount VIP users' large orders.
-// Objects are lambda factories returning Map literals; everything is immutable.
+// Objects are lambda factories returning Map literals; methods use this / implicit fields.
 
 var Order = (amount, userId) -> {
     amount: amount,
@@ -522,9 +588,11 @@ var users = [
     User("u2", "vip")
 ]
 
-// Build a lookup map id -> user via reduce (single assignment forbids
-// reassigning an outer variable inside a for loop, so use reduce).
-var userMap = reduce(users, {}, (acc, u) -> put(acc, u.id, u))
+// Build a lookup map id -> user (a plain loop works in v2).
+var userMap = {}
+for u in users {
+    userMap[u.id] = u
+}
 
 var order = Order(500, "u2")
 var user = userMap[order.userId]
@@ -533,24 +601,23 @@ var final = user.level == "vip" && order.amount > 100
         : order.amount
 ```
 
-> Note how `reduce` is used to build `userMap` instead of a mutating `for` loop — this is a direct consequence of the single-assignment rule.
-
 ## Summary
 
 Goval is a concise expression language for rule engines, built on three ideas:
 
-- **Objects as lambda factories + Map literals** — no `struct`, no `this`, no method-declaration syntax. A "type" is a function returning a Map; methods are closures that capture constructor parameters.
-- **Full immutability + single assignment** — object fields and container elements are read-only; a local variable can be bound at most once. Container updates go through built-in functions that return new containers.
+- **Objects as lambda factories + Map literals** — no `struct`, no method-declaration syntax. A "type" is a function returning a Map; methods are lambdas that read the receiver through `this` (explicit or implicit).
+- **Mutable locals, in-place containers, strict assignment** — variables reassign freely (loop accumulation just works); fields and elements are written in place; bare assignments require a prior binding so typos fail at compile time; host data stays isolated via deep copy.
 - **Expression-oriented control flow** — `if`/`else`, `for`-`in`, `break`/`continue`. No `switch`, no `return`, no three-part `for`. Lambdas and expression blocks return their trailing expression.
 
 ### Key Features
 
 - **Type Inference**: `var` declarations with mandatory initialization; no type annotations.
-- **Lambda Factories**: custom types as functions returning Map literals.
-- **Immutability & Single Assignment**: identifier-only lvalues; each variable bound once; containers modified via built-in functions.
+- **Lambda Factories**: custom types as functions returning Map literals, with `this` bound at method-call sites and implicit-`this` field rewriting in method bodies.
+- **Reassignment & Strict Assignment**: identifier/field/subscript assignment targets; each variable bound once per scope but updatable; typos rejected at compile time.
+- **Reference Capture**: closures share bindings with their defining scope; per-iteration loop capture; lambda identity equality.
+- **`capture` Pragma**: compile-time opt-out of implicit-`this` rewriting for pure closure semantics.
 - **Container Literals**: List `[...]` and Map `{...}` (string keys, with bare-identifier shorthand).
 - **Control Flow**: `if`/`else`, `for`-`in` over List/Map/string, `break`/`continue`.
 - **Expression Blocks**: `{ stmts; expr }` — trailing expression is the block's value.
-- **Lambda Closures**: `(params) -> expr` or `(params) -> { stmts; expr }`.
 - **Rich Operators**: arithmetic, comparison, logical (short-circuit), bitwise, shift, `in`, ternary — with C-like precedence.
 - **Built-in Functions**: `reduce`, `map`, `filter`, `find`, `append`, `put`, `removeAt`, `len`, `range`.
