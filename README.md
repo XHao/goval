@@ -16,6 +16,7 @@ A lightweight expression language designed for embedding in Go applications, wit
 - 🔍 **Lambda & Closures**: First-class lambdas with reference capture, per-iteration loop capture, and a `capture` pragma for pure closure semantics
 - ✏️ **Mutable with Guard Rails**: Variables reassign freely (loop accumulation just works); fields/elements are written in place; strict assignment rejects typos at compile time
 - 📦 **Containers**: List and Map literals (`[1, 2, 3]`, `{"key": value}`) with in-place writes plus pure builtins (`append`, `put`, `reduce`, `map`, `filter`, `find`)
+- 🔤 **String Methods**: 14 built-in methods in postfix form — `s.trim().lower()`, `s.split(",")`, `s.contains("x")` — all with rune-based indexing (CJK-safe)
 - ⚡ **Minimal Syntax**: `if/else`, `for-in`, `var`, `this`, `capture` — only the keywords a rule engine needs
 - 🔧 **Go Integration**: `Evaluate(source, context)` API with automatic Go ↔ goval value conversion
 
@@ -121,6 +122,20 @@ for k, v in map { ... }
 | `range(start, end)` | Integer list `[start, end)` |
 
 Builtins are pure — they return new values. In-place mutation uses field/element assignment (`lst[0] = 9`, `m["k"] = v`, `p.field = x`).
+
+### String Methods
+
+Strings carry built-in postfix methods (rune-indexed, consistent with `s[i]` / `len(s)`):
+
+```goval
+"  Hello  ".trim().lower()          // "hello"
+"a,b,c".split(",")                  // ["a", "b", "c"]
+",".join(["x", "y"])                // "x,y"
+"你好世界".indexOf("世")              // 2
+level.startsWith("vip") ? 0.8 : 1.0 // works in ternary conditions
+```
+
+Full set: `upper`, `lower`, `trim`, `contains`, `startsWith`, `endsWith`, `indexOf`, `lastIndexOf`, `substring(start[, end])`, `replace`, `repeat`, `reverse`, `split`, `join` — see the [Syntax Documentation](Goval_Syntax_Documentation.md).
 
 ## Documentation
 

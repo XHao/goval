@@ -499,6 +499,7 @@ lst[i]              // subscript access
 f(args)             // function call
 obj.method(args)    // method call (binds this to obj)
 m["f"](args)        // subscript call (also binds this)
+s.upper()           // string built-in method (see String Methods)
 ```
 
 Subscript access `base[i]` behavior depends on the base type:
@@ -509,6 +510,40 @@ Subscript access `base[i]` behavior depends on the base type:
 Field and subscript positions are also valid **assignment targets** (see [Assignment Semantics](#assignment-semantics-v2)); string subscripting is read-only.
 
 Access chains left-associatively, so `a.b.c` and `m["a"]["b"]` work as expected.
+
+## String Methods
+
+Strings carry a built-in method set, invoked in postfix form `s.method(args)`. Strings are immutable — every method returns a new value. All indices are **rune indices**, consistent with `s[i]`, `len(s)`, and `for ch in s` (multi-byte characters count as one).
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `upper()` | `() -> string` | Uppercase (Unicode-aware). |
+| `lower()` | `() -> string` | Lowercase (Unicode-aware). |
+| `trim()` | `() -> string` | Whitespace removed from both ends. |
+| `contains(sub)` | `(string) -> bool` | True if `sub` is a substring. |
+| `startsWith(prefix)` | `(string) -> bool` | Prefix test. |
+| `endsWith(suffix)` | `(string) -> bool` | Suffix test. |
+| `indexOf(sub)` | `(string) -> int` | Rune index of the first occurrence; `-1` if absent. |
+| `lastIndexOf(sub)` | `(string) -> int` | Rune index of the last occurrence; `-1` if absent. |
+| `substring(start[, end])` | `(int[, int]) -> string` | Substring over `[start, end)`; `end` defaults to the length. Negative indices, out-of-range, or `start > end` are runtime errors (consistent with `s[i]`). |
+| `replace(old, new)` | `(string, string) -> string` | All occurrences of `old` replaced with `new`. |
+| `repeat(n)` | `(int) -> string` | Receiver repeated `n` times; negative `n` is a runtime error. |
+| `reverse()` | `() -> string` | Reversed by rune. |
+| `split(sep)` | `(string) -> List` | Split into a List of strings; an empty separator splits per rune. |
+| `join(list)` | `(List) -> string` | Concatenate the List's string elements with the receiver as separator. |
+
+```
+"  Hello  ".trim().lower()                 // "hello" — chains naturally
+"a,b,c".split(",")                         // ["a", "b", "c"]
+",".join(["x", "y"])                       // "x,y"
+"你好世界".indexOf("世")                      // 2 — rune index, not byte offset
+"https://x".startsWith("https") ? 1 : 0    // 1 — works in ternary conditions
+map("a,b".split(","), x -> x.upper())      // ["A", "B"] — combines with builtins
+```
+
+- Calling an unknown method is a runtime error (`no method '...' on string`); so are wrong argument types or arity.
+- Methods attach only to strings — there is no implicit `toString` conversion; calling a method on other kinds keeps the existing `cannot call method` error.
+- `join` requires every element to be a string; `join` on a non-List or with non-string elements is a runtime error.
 
 ## Built-in Functions
 
@@ -620,4 +655,5 @@ Goval is a concise expression language for rule engines, built on three ideas:
 - **Control Flow**: `if`/`else`, `for`-`in` over List/Map/string, `break`/`continue`.
 - **Expression Blocks**: `{ stmts; expr }` — trailing expression is the block's value.
 - **Rich Operators**: arithmetic, comparison, logical (short-circuit), bitwise, shift, `in`, ternary — with C-like precedence.
+- **String Methods**: `upper/lower/trim`, `contains/startsWith/endsWith`, `indexOf/lastIndexOf` (rune-based), `substring`, `replace/repeat/reverse`, `split/join` — chained in postfix form `s.method()`.
 - **Built-in Functions**: `reduce`, `map`, `filter`, `find`, `append`, `put`, `removeAt`, `len`, `range`.

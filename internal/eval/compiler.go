@@ -703,6 +703,9 @@ func (c *compiler) compilePostfix(ctx *ast.PostfixExpressionContext) (func(*Env)
 			for i, fn := range argFns {
 				args[i] = fn(env)
 			}
+			if base.IsString() {
+				return callStringMethod(name, base, args)
+			}
 			if base.IsMap() {
 				method, ok := base.m[name]
 				if !ok {
@@ -747,6 +750,9 @@ func (c *compiler) compilePostfix(ctx *ast.PostfixExpressionContext) (func(*Env)
 				args := make([]Value, len(argFns))
 				for i, fn := range argFns {
 					args[i] = fn(env)
+				}
+				if base.IsString() {
+					return callStringMethod(name, base, args)
 				}
 				if !base.IsMap() {
 					panic(evalErrorf(0, 0, "cannot call method '%s' on %s", name, kindName(base)))
