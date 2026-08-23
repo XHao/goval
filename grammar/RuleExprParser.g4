@@ -131,8 +131,7 @@ assignment
 // 三元：colon 分支放宽为完整 expression，允许 else 分支裸写赋值
 // （then 分支本就是 expression）。右结合经 expression → conditionalExpression 保持。
 conditionalExpression
-    : conditionalOrExpression
-    | conditionalOrExpression QUESTION expression COLON expression
+    : conditionalOrExpression (QUESTION expression COLON expression)?
     ;
 
 conditionalOrExpression

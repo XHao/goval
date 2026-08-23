@@ -283,3 +283,20 @@ func TestV2StrictAssignment(t *testing.T) {
 		assertEval(t, `{ k: true ? 1 : 2 }.k`, int64(1))
 	})
 }
+
+func TestTernaryConditionMustBeBool(t *testing.T) {
+	// 三元条件与 if 条件一致：非 bool 显式报错，不静默当 false
+	assertEvalError(t, `1 ? "a" : "b"`, "ternary condition must be bool")
+	assertEvalError(t, `var s = "x"; s ? 1 : 2`, "ternary condition must be bool")
+	assertEvalError(t, `var z = null; z ? 1 : 2`, "ternary condition must be bool")
+	assertEval(t, `true ? 1 : 2`, int64(1))
+}
+
+func TestCallInTernaryCondition(t *testing.T) {
+	// 带参调用/下标出现在三元条件中不得被拆成两条语句（f | (1)?1:2 形态）
+	assertEval(t, `len([1, 2]) > 1 ? 1 : 2`, int64(1))
+	assertEval(t, `var m = {"k": true}; m["k"] ? 1 : 2`, int64(1))
+	assertEval(t, `var l = [true]; l[0] ? 1 : 2`, int64(1))
+	assertEval(t, `var f = (x) -> x > 0; f(1) ? 10 : 20`, int64(10))
+	assertEval(t, `var p = {f: (x) -> x > 0}; p.f(1) ? 10 : 20`, int64(10))
+}

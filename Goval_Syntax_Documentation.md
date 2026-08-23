@@ -145,7 +145,7 @@ Operands must be `int` (`int64`); otherwise a runtime error. `~` is unary bitwis
 ```
 
 - `->` lambda arrow.
-- `? :` ternary conditional. Both branches are full expressions — assignments may appear bare in either branch (`cond ? x = 1 : y = 2`). The ternary is right-associative.
+- `? :` ternary conditional. Both branches are full expressions — assignments may appear bare in either branch (`cond ? x = 1 : y = 2`). The ternary is right-associative. The condition must be `bool` — anything else is a runtime error (consistent with `if`).
 - `.` field access (Map lookup).
 - `[]` subscript access.
 - `()` function/method call / grouping.

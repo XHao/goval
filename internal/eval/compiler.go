@@ -332,7 +332,11 @@ func (c *compiler) compileConditional(ctx *ast.ConditionalExpressionContext) (fu
 			return nil, err
 		}
 		return func(env *Env) Value {
-			if condFn(env).b {
+			cond := condFn(env)
+			if !cond.IsBool() {
+				panic(evalErrorf(0, 0, "ternary condition must be bool, got %s", kindName(cond)))
+			}
+			if cond.b {
 				return thenFn(env)
 			}
 			return elseFn(env)
