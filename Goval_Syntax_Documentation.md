@@ -616,6 +616,20 @@ v, err := goval.Evaluate("x > 5", ctx)
 // v == true
 ```
 
+### Repeated Evaluation
+
+For rule engines applying the same rule to many rows, compile once and run per row:
+
+```go
+p, err := goval.Compile(source, "amount", "user") // context keys fixed at compile time
+v, err := p.Run(map[string]interface{}{"amount": 10, "user": user})
+```
+
+- `Compile` takes the names of the context variables; the strict-assignment check treats them as pre-bound globals (the key set is fixed at compile time).
+- Each `Run` is independent: the context is deep-copied on injection, and evaluation panics are recovered into `error`.
+- A key missing from the `Run` context errors on first read; extra keys become additional globals.
+- `Evaluate(source, context)` keeps its signature as the compile + run convenience.
+
 ## Usage Example
 
 ```

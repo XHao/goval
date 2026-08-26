@@ -10,7 +10,7 @@ A lightweight expression language designed for embedding in Go applications, wit
 
 ## Features
 
-- 🚀 **Closure-Tree Evaluator**: Source compiles to `func(*Env) Value` once, evaluates many times — ideal for rule engines that apply the same rule to large datasets
+- 🚀 **Closure-Tree Evaluator**: Source compiles to `func(*Env) Value` once, evaluates many times — ideal for rule engines that apply the same rule to large datasets (`Compile`/`Run` API)
 - 🔒 **Sandboxed & Host-Isolated**: No I/O; context data is deep-copied in and out — scripts can never touch caller-owned Go data
 - 🏗️ **Objects via Lambda Factories**: No `struct` keyword — objects are Maps returned by lambda factories; `this` is bound at method-call sites, with implicit field access in method bodies
 - 🔍 **Lambda & Closures**: First-class lambdas with reference capture, per-iteration loop capture, and a `capture` pragma for pure closure semantics
@@ -61,6 +61,20 @@ func main() {
     fmt.Println(result) // 10
 }
 ```
+
+## Compile Once, Run Many
+
+Rules applied to large datasets should be compiled once and evaluated per row:
+
+```go
+p, err := goval.Compile("amount * rate > 100", "amount", "rate")
+for _, row := range rows {
+    hit, err := p.Run(map[string]interface{}{"amount": row.Amount, "rate": 0.8})
+    _ = hit
+}
+```
+
+`Compile(source, contextKeys...)` fixes the context variable names at compile time (strict-assignment checks rely on them); each `Run(ctx)` injects a deep-copied context and evaluates independently. `goval.Evaluate(src, ctx)` remains the one-shot convenience.
 
 ## Language Overview
 
