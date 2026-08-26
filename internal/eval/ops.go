@@ -57,14 +57,18 @@ func modValues(l, r Value) Value {
 }
 
 func eqValues(l, r Value) bool {
+	// 数值跨 kind 按值比较（与 < > 的混型比较一致）：
+	// Go JSON 数字一律注入为 float64，`x == 100` 必须按值命中而非静默为 false。
+	if l.IsInt() && r.IsInt() {
+		return l.i == r.i
+	}
+	if isNumeric(l) && isNumeric(r) {
+		return toFloat(l) == toFloat(r)
+	}
 	if l.kind != r.kind {
 		return false
 	}
 	switch l.kind {
-	case kindInt:
-		return l.i == r.i
-	case kindFloat:
-		return l.f == r.f
 	case kindBool:
 		return l.b == r.b
 	case kindString:
@@ -74,9 +78,33 @@ func eqValues(l, r Value) bool {
 	case kindLambda:
 		// 同一闭包恒等：f == f 为 true；不同闭包即使源码相同也不等。
 		return l.fn == r.fn
+	case kindList:
+		// 深度相等：长度一致且逐元素 eqValues。
+		if len(l.list) != len(r.list) {
+			return false
+		}
+		for i := range l.list {
+			if !eqValues(l.list[i], r.list[i]) {
+				return false
+			}
+		}
+		return true
+	case kindMap:
+		if len(l.m) != len(r.m) {
+			return false
+		}
+		for k, v := range l.m {
+			rv, ok := r.m[k]
+			if !ok || !eqValues(v, rv) {
+				return false
+			}
+		}
+		return true
 	}
 	return false
 }
+
+func isNumeric(v Value) bool { return v.IsInt() || v.IsFloat() }
 
 func ltValues(l, r Value) bool {
 	if l.IsInt() && r.IsInt() {

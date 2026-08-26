@@ -68,3 +68,54 @@ func TestOperators(t *testing.T) {
 		assertEval(t, `"xx" in "hello"`, false)
 	})
 }
+
+// TestEqualitySemantics 回归：== 此前按 kind 严格比较，
+// 1 == 1.0 为 false，且 JSON 数字注入为 float64 后 x == 100 静默不命中；
+// List/Map 无深度相等语义，[1,2] == [1,2] 恒为 false。
+func TestEqualitySemantics(t *testing.T) {
+	t.Run("numeric_cross_kind", func(t *testing.T) {
+		assertEval(t, "1 == 1.0", true)
+		assertEval(t, "1.0 == 1", true)
+		assertEval(t, "1 != 1.0", false)
+		assertEval(t, "1 == 1.5", false)
+		assertEval(t, "0 == 0.0", true)
+		assertEval(t, "100 == 1e2", true)
+	})
+	t.Run("numeric_from_context", func(t *testing.T) {
+		// Go JSON 反序列化的数字一律是 float64：规则 `amount == 100` 必须按值命中
+		assertEvalCtx(t, "x == 1", map[string]Value{"x": FloatValue(1)}, true)
+		assertEvalCtx(t, "x == 100", map[string]Value{"x": FloatValue(100)}, true)
+		assertEvalCtx(t, "x != 100", map[string]Value{"x": FloatValue(100)}, false)
+		assertEvalCtx(t, "x == 100.5", map[string]Value{"x": FloatValue(100.5)}, true)
+	})
+	t.Run("cross_kind_still_false", func(t *testing.T) {
+		assertEval(t, `1 == "1"`, false) // 数值与字符串不隐式转换
+		assertEval(t, "true == 1", false)
+		assertEval(t, "null == 0", false)
+		assertEval(t, "null == null", true)
+		assertEval(t, "null != 0", true)
+	})
+	t.Run("list_deep_equality", func(t *testing.T) {
+		assertEval(t, "[1, 2] == [1, 2]", true)
+		assertEval(t, "[1, 2] != [1, 2]", false)
+		assertEval(t, "[1, 2] == [1, 3]", false)
+		assertEval(t, "[1] == [1, 2]", false)
+		assertEval(t, "[] == []", true)
+		assertEval(t, `[1, "a"] == [1.0, "a"]`, true) // 元素级数值相等
+		assertEval(t, `[[1], [2]] == [[1.0], [2.0]]`, true)
+		assertEval(t, `[1, 2] == "ab"`, false)
+	})
+	t.Run("map_deep_equality", func(t *testing.T) {
+		assertEval(t, `{"a": 1} == {"a": 1}`, true)
+		assertEval(t, `{"a": 1} != {"a": 1}`, false)
+		assertEval(t, `{"a": 1} == {"a": 2}`, false)
+		assertEval(t, `{"a": 1} == {"b": 1}`, false)
+		assertEval(t, `{"a": 1} == {"a": 1, "b": 2}`, false)
+		assertEval(t, `{} == {}`, true)
+		assertEval(t, `{"a": [1, {"b": 2}]} == {"a": [1.0, {"b": 2.0}]}`, true)
+	})
+	t.Run("in_list_numeric_cross_kind", func(t *testing.T) {
+		assertEval(t, "1 in [1.0, 2.0]", true) // in 复用 eqValues
+		assertEval(t, "3 in [1.0, 2.0]", false)
+	})
+}

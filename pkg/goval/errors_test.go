@@ -51,6 +51,31 @@ func TestEvaluateNoPanicOnAnyInput(t *testing.T) {
 	}
 }
 
+// TestEvaluateContextUnsupportedType 回归：context 中不支持的 Go 类型（func、struct 等）
+// 此前被静默转为 null，f(1) 只会报 "cannot call null"，极难排查。
+func TestEvaluateContextUnsupportedType(t *testing.T) {
+	t.Run("func_rejected_with_key_and_type", func(t *testing.T) {
+		_, err := Evaluate("f(1)", map[string]interface{}{"f": func(int) int { return 1 }})
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), "f")
+			assert.Contains(t, err.Error(), "func(int) int")
+		}
+	})
+	t.Run("struct_rejected", func(t *testing.T) {
+		_, err := Evaluate("1", map[string]interface{}{"s": struct{ X int }{1}})
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), "s")
+		}
+	})
+	t.Run("nested_unsupported_rejected", func(t *testing.T) {
+		_, err := Evaluate("1", map[string]interface{}{"lst": []interface{}{func() {}}})
+		assert.Error(t, err)
+	})
+	t.Run("supported_types_still_work", func(t *testing.T) {
+		assertEvaluate(t, "x + y", map[string]interface{}{"x": 1, "y": 2.5}, 3.5)
+	})
+}
+
 // TestLambdaBlockCompoundTrailingExpression 回归：块体尾表达式为复合表达式时必须整体作为返回值。
 // 修复前 { var t = 1; t + 1 } 被贪婪解析成语句 t + 尾表达式 +1，求值为 1 而非 2。
 func TestLambdaBlockCompoundTrailingExpression(t *testing.T) {

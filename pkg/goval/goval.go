@@ -51,44 +51,56 @@ func Evaluate(source string, context map[string]interface{}) (result interface{}
 
 	env := eval.NewRootEnv()
 	for name, val := range context {
-		env.Set(name, toGovalValue(val))
+		gv, cerr := toGovalValue(val)
+		if cerr != nil {
+			return nil, fmt.Errorf("context %q: %w", name, cerr)
+		}
+		env.Set(name, gv)
 	}
 
 	val := eval.Run(fn, env)
 	return toGoValue(val), nil
 }
 
-// toGovalValue 将 Go 原生值转为 goval Value。
-func toGovalValue(v interface{}) eval.Value {
+// toGovalValue 将 Go 原生值转为 goval Value；不支持的类型返回错误而非静默转 null。
+func toGovalValue(v interface{}) (eval.Value, error) {
 	switch val := v.(type) {
 	case int:
-		return eval.IntValue(int64(val))
+		return eval.IntValue(int64(val)), nil
 	case int64:
-		return eval.IntValue(val)
+		return eval.IntValue(val), nil
 	case float64:
-		return eval.FloatValue(val)
+		return eval.FloatValue(val), nil
 	case float32:
-		return eval.FloatValue(float64(val))
+		return eval.FloatValue(float64(val)), nil
 	case bool:
-		return eval.BoolValue(val)
+		return eval.BoolValue(val), nil
 	case string:
-		return eval.StringValue(val)
+		return eval.StringValue(val), nil
 	case nil:
-		return eval.NullValue()
+		return eval.NullValue(), nil
 	case []interface{}:
 		lst := make([]eval.Value, len(val))
 		for i, item := range val {
-			lst[i] = toGovalValue(item)
+			iv, err := toGovalValue(item)
+			if err != nil {
+				return eval.Value{}, err
+			}
+			lst[i] = iv
 		}
-		return eval.ListValue(lst)
+		return eval.ListValue(lst), nil
 	case map[string]interface{}:
 		m := make(map[string]eval.Value)
 		for k, item := range val {
-			m[k] = toGovalValue(item)
+			iv, err := toGovalValue(item)
+			if err != nil {
+				return eval.Value{}, err
+			}
+			m[k] = iv
 		}
-		return eval.MapValue(m)
+		return eval.MapValue(m), nil
 	}
-	return eval.NullValue()
+	return eval.Value{}, fmt.Errorf("unsupported context value type %T", v)
 }
 
 // toGoValue 将 goval Value 转为 Go 原生值。

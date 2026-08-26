@@ -63,7 +63,7 @@ Character literals are enclosed in single quotes and evaluate to their Unicode c
 - `'\\'` → 92 (escaped backslash)
 - `'\''` → 39 (escaped single quote)
 
-Supported escapes: `\n`, `\t`, `\\`, `\'`, `\"`.
+Supported escapes (shared by string literals): `\n`, `\t`, `\r`, `\0`, `\\`, `\'`, `\"`.
 
 #### String Literals
 
@@ -118,10 +118,10 @@ Only simple assignment (`=`) is supported. The left-hand side may be a bare iden
 ==, !=, <, >, <=, >=, in
 ```
 
-- `==`/`!=` compare same-typed values.
+- `==`/`!=` compare **by value**. Numeric operands compare numerically across `int`/`float` (`1 == 1.0` → `true`; Go JSON numbers inject as `float64`, so `amount == 100` matches an int literal). Lists and Maps compare deeply — equal length / key set plus element-wise value equality (`[1, 2] == [1, 2]` → `true`). Values of different kinds are simply unequal (`1 == "1"`, `null == 0`, `true == 1`); lambdas compare by identity.
 - `<`, `>`, `<=`, `>=` work on `int`/`float`/`string`. Comparing mismatched types is a runtime error.
 - `in` tests containment:
-  - `x in list` — true if `x` equals an element of the List.
+  - `x in list` — true if `x` equals an element of the List (value equality; `1 in [1.0]` → `true`).
   - `k in map` — true if `k` (string) is a key of the Map.
   - `sub in str` — true if `sub` is a substring of `str`.
 
@@ -563,6 +563,8 @@ Goval provides these built-in functions, available in every scope:
 
 All built-ins return **new** values; they never mutate their inputs. In-place mutation goes through field/element assignment — the two styles coexist (pure helpers + in-place writes), mirroring Go slices/maps.
 
+Built-ins validate their arguments — wrong arity or argument types are runtime errors naming the builtin (`reduce expected 3 args, got 2`; `map requires a list, got int`; `range requires int bounds, got string`). `filter`/`find` callbacks must return `bool`. `removeAt` bounds-checks its index like List subscripting (`removeAt index out of range: 5 (len 2)`). `range(start, end)` with `start >= end` returns an empty List.
+
 ## Parser Generation
 
 Goval uses ANTLR4 as the parser generator. Lexical rules and grammar rules are defined separately in `grammar/RuleExprLexer.g4` and `grammar/RuleExprParser.g4`.
@@ -592,7 +594,7 @@ v, err := goval.Evaluate(source string, context map[string]interface{}) (interfa
 ```
 
 - `source` is a Goval program string.
-- `context` injects Go values as global variables. Supported Go types: `int`, `int64`, `float64`, `float32`, `bool`, `string`, `nil`, `[]interface{}`, `map[string]interface{}`.
+- `context` injects Go values as global variables. Supported Go types: `int`, `int64`, `float64`, `float32`, `bool`, `string`, `nil`, `[]interface{}`, `map[string]interface{}`. Any other type (e.g. `func`, structs, `int32`) is rejected with an error naming the offending key and its Go type (`context "f": unsupported context value type func(int) int`) — unsupported values are never silently converted to `null`.
 - The result is a Go native value: `int64`, `float64`, `bool`, `string`, `nil`, `[]interface{}`, or `map[string]interface{}`.
 - Errors from every stage are returned as `error` — never as a panic to the caller: syntax errors (rejected input, unsupported operators, invalid assignment targets), semantic errors (`break`/`continue` outside a loop), compile errors (strict-assignment violations, same-scope redeclaration), and runtime panics (e.g. division by zero, type mismatches) are all recovered and returned.
 
