@@ -1,6 +1,9 @@
 package eval
 
-import "unicode/utf8"
+import (
+	"sort"
+	"unicode/utf8"
+)
 
 // BuiltinFunc 是内置函数的 Go 实现签名。
 type BuiltinFunc func(args []Value) Value
@@ -17,6 +20,17 @@ func defaultBuiltins() map[string]Value {
 		"removeAt": builtinRemoveAt(),
 		"len":      builtinLen(),
 		"range":    builtinRange(),
+		"int":      builtinInt(),
+		"float":    builtinFloat(),
+		"string":   builtinString(),
+		"abs":      builtinAbs(),
+		"round":    builtinRound(),
+		"floor":    builtinFloor(),
+		"ceil":     builtinCeil(),
+		"min":      minMax("min", func(cur, cand float64) bool { return cand < cur }),
+		"max":      minMax("max", func(cur, cand float64) bool { return cand > cur }),
+		"keys":     builtinKeys(),
+		"values":   builtinValues(),
 	}
 }
 
@@ -224,5 +238,42 @@ func builtinRange() Value {
 			result = append(result, IntValue(i))
 		}
 		return ListValue(result)
+	})
+}
+
+// sortedKeys 返回 Map 键的字典序排序。Go map 迭代序随机，
+// keys/values 必须给确定性输出（规则引擎可复现）。
+func sortedKeys(m map[string]Value) []string {
+	ks := make([]string, 0, len(m))
+	for k := range m {
+		ks = append(ks, k)
+	}
+	sort.Strings(ks)
+	return ks
+}
+
+func builtinKeys() Value {
+	return builtin("keys", func(args []Value) Value {
+		wantArgs("keys", args, 1)
+		want("keys", "a map", args[0].IsMap(), args[0])
+		ks := sortedKeys(args[0].m)
+		lst := make([]Value, len(ks))
+		for i, k := range ks {
+			lst[i] = StringValue(k)
+		}
+		return ListValue(lst)
+	})
+}
+
+func builtinValues() Value {
+	return builtin("values", func(args []Value) Value {
+		wantArgs("values", args, 1)
+		want("values", "a map", args[0].IsMap(), args[0])
+		ks := sortedKeys(args[0].m)
+		lst := make([]Value, len(ks))
+		for i, k := range ks {
+			lst[i] = args[0].m[k]
+		}
+		return ListValue(lst)
 	})
 }

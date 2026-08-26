@@ -560,6 +560,15 @@ Goval provides these built-in functions, available in every scope:
 | `removeAt(list, index)` | `(List, int) -> List` | Returns a new List with the element at `index` removed. |
 | `len(v)` | `(List\|string\|Map) -> int` | Returns the length of a List, string, or Map. |
 | `range(start, end)` | `(int, int) -> List` | Returns a new List of integers `[start, start+1, ..., end-1]`. Empty if `start >= end`. |
+| `int(v)` | `(int\|float\|string) -> int` | Convert to `int`. Float **truncates** (Go semantics: `int(12.7)` → `12`); string must be a strict decimal integer (`"12.5"` or garbage → runtime error). |
+| `float(v)` | `(int\|float\|string) -> float` | Convert to `float`; string parsed (`"12.5"`, `"1e3"` → `1000.0`). |
+| `string(v)` | `(int\|float\|bool\|string) -> string` | Format as string with Go's shortest representation (`string(5.0)` → `"5"`); null/containers are runtime errors — no implicit `toString`. |
+| `abs(x)` | `(int\|float) -> int\|float` | Absolute value, type-preserving (`abs(-3)` → `3` as int; `abs(-3.5)` → `3.5`). |
+| `round(x[, digits])` | `(number[, int]) -> float` | Round half away from zero; optional decimal digits (`round(8.247, 2)` → `8.25`). Always returns float. |
+| `floor(x)` / `ceil(x)` | `(number) -> float` | Floor / ceiling (Go `math` semantics); wrap with `int(...)` when an integer index is needed. |
+| `min(...)` / `max(...)` | `(...number) -> number` | Variadic scalars (`min(1, 2)` → `1`) or a single List argument (`max(prices)`); all-int stays int, any float promotes the result to float. |
+| `keys(m)` | `(Map) -> List` | Keys sorted lexicographically — deterministic output despite Go's random map iteration. |
+| `values(m)` | `(Map) -> List` | Values ordered by the sorted keys (pairs align with `keys`). |
 
 All built-ins return **new** values; they never mutate their inputs. In-place mutation goes through field/element assignment — the two styles coexist (pure helpers + in-place writes), mirroring Go slices/maps.
 

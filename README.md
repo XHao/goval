@@ -120,6 +120,10 @@ for k, v in map { ... }
 | `removeAt(lst, index)` | New list with index removed |
 | `len(v)` | Length of list/string/map |
 | `range(start, end)` | Integer list `[start, end)` |
+| `int(v)` / `float(v)` / `string(v)` | Strict type conversion (float truncates; numeric strings parsed) |
+| `abs(x)` / `round(x[, d])` / `floor(x)` / `ceil(x)` | Math builtins (round half away from zero, optional decimals) |
+| `min(...)` / `max(...)` | Variadic scalars or a single list (`min(1, 2)`, `max(prices)`) |
+| `keys(m)` / `values(m)` | Map keys (sorted) / values (aligned to sorted keys) |
 
 Builtins are pure — they return new values. In-place mutation uses field/element assignment (`lst[0] = 9`, `m["k"] = v`, `p.field = x`).
 

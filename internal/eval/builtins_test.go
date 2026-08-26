@@ -48,6 +48,16 @@ func TestBuiltins(t *testing.T) {
 		assertEval(t, "range(-3, -5)", []interface{}{})
 		assertEval(t, "range(-3, 0)", []interface{}{int64(-3), int64(-2), int64(-1)})
 	})
+	t.Run("keys_values", func(t *testing.T) {
+		// 按键排序，输出确定性（Go map 迭代序随机）
+		assertEval(t, `keys({"b": 1, "a": 2})`, []interface{}{"a", "b"})
+		assertEval(t, `keys({})`, []interface{}{})
+		assertEval(t, `values({"b": 1, "a": 2})`, []interface{}{int64(2), int64(1)}) // 值随 key 排序对应
+		assertEval(t, `values({})`, []interface{}{})
+		assertEvalError(t, `keys([1])`, "map")
+		assertEvalError(t, `values("x")`, "map")
+		assertEvalError(t, `keys()`, "expected 1 args")
+	})
 }
 
 // TestBuiltinArgumentValidation 回归：内建函数此前对参数类型/个数不做校验——
