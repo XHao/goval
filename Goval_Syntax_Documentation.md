@@ -606,6 +606,7 @@ v, err := goval.Evaluate(source string, context map[string]interface{}) (interfa
 - `context` injects Go values as global variables. Supported Go types: `int`, `int64`, `float64`, `float32`, `bool`, `string`, `nil`, `[]interface{}`, `map[string]interface{}`. Any other type (e.g. `func`, structs, `int32`) is rejected with an error naming the offending key and its Go type (`context "f": unsupported context value type func(int) int`) — unsupported values are never silently converted to `null`.
 - The result is a Go native value: `int64`, `float64`, `bool`, `string`, `nil`, `[]interface{}`, or `map[string]interface{}`.
 - Errors from every stage are returned as `error` — never as a panic to the caller: syntax errors (rejected input, unsupported operators, invalid assignment targets), semantic errors (`break`/`continue` outside a loop), compile errors (strict-assignment violations, same-scope redeclaration), and runtime panics (e.g. division by zero, type mismatches) are all recovered and returned.
+- Runtime errors carry the line/column of the failing expression — the innermost failing node wins: `eval error at line 3, column 0: cannot call method 'startsWith' on null`.
 
 ```go
 v, err := goval.Evaluate("1 + 2 * 3", nil)

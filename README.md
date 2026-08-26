@@ -17,6 +17,7 @@ A lightweight expression language designed for embedding in Go applications, wit
 - ✏️ **Mutable with Guard Rails**: Variables reassign freely (loop accumulation just works); fields/elements are written in place; strict assignment rejects typos at compile time
 - 📦 **Containers**: List and Map literals (`[1, 2, 3]`, `{"key": value}`) with in-place writes plus pure builtins (`append`, `put`, `reduce`, `map`, `filter`, `find`)
 - 🔤 **String Methods**: 14 built-in methods in postfix form — `s.trim().lower()`, `s.split(",")`, `s.contains("x")` — all with rune-based indexing (CJK-safe)
+- 🎯 **Precise Errors**: Runtime errors carry the failing expression's line/column (`eval error at line 3, column 0: ...`) — the innermost failing node wins
 - ⚡ **Minimal Syntax**: `if/else`, `for-in`, `var`, `this`, `capture` — only the keywords a rule engine needs
 - 🔧 **Go Integration**: `Evaluate(source, context)` API with automatic Go ↔ goval value conversion
 

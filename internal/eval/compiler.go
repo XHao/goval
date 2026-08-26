@@ -5,7 +5,34 @@ import (
 	"strings"
 
 	"github.com/XHao/goval/internal/ast"
+	"github.com/antlr4-go/antlr/v4"
 )
+
+// posOf 取 parse tree 节点起始 token 的行列（ANTLR：line 从 1 起，column 从 0 起）。
+func posOf(ctx antlr.ParserRuleContext) (int, int) {
+	if tok := ctx.GetStart(); tok != nil {
+		return tok.GetLine(), tok.GetColumn()
+	}
+	return 0, 0
+}
+
+// withPos 给闭包标注运行时错误位置：panic 途经时，若 EvalError 尚无位置
+// （Line==0）则填入本节点位置后重新 panic——最内层闭包优先，报最准确的位置。
+// 只包会出错的节点（二元运算/后缀访问/调用/条件检查）；字面量与标识符不包，
+// 热路径不付 recover 成功路径的开销（open-coded defer，约 ns 级）。
+func withPos(line, col int, fn func(*Env) Value) func(*Env) Value {
+	return func(env *Env) (v Value) {
+		defer func() {
+			if r := recover(); r != nil {
+				if ee, ok := r.(*EvalError); ok && ee.Line == 0 && (line != 0 || col != 0) {
+					ee.Line, ee.Column = line, col
+				}
+				panic(r)
+			}
+		}()
+		return fn(env)
+	}
+}
 
 // scopeInfo 是编译期静态作用域层：已绑定名字 + 是否 lambda 体。
 // isLambda 用于隐式 this 改写的延迟位置判定：只有 lambda 体内的引用
@@ -331,7 +358,8 @@ func (c *compiler) compileConditional(ctx *ast.ConditionalExpressionContext) (fu
 		if err != nil {
 			return nil, err
 		}
-		return func(env *Env) Value {
+		line, col := posOf(ctx)
+		return withPos(line, col, func(env *Env) Value {
 			cond := condFn(env)
 			if !cond.IsBool() {
 				panic(evalErrorf(0, 0, "ternary condition must be bool, got %s", kindName(cond)))
@@ -340,7 +368,7 @@ func (c *compiler) compileConditional(ctx *ast.ConditionalExpressionContext) (fu
 				return thenFn(env)
 			}
 			return elseFn(env)
-		}, nil
+		}), nil
 	}
 	return c.compileConditionalOr(ctx.ConditionalOrExpression().(*ast.ConditionalOrExpressionContext))
 }
@@ -417,13 +445,14 @@ func (c *compiler) compileInclusiveOr(ctx *ast.InclusiveOrExpressionContext) (fu
 		if err != nil {
 			return nil, err
 		}
-		return func(env *Env) Value {
+		line, col := posOf(ctx)
+		return withPos(line, col, func(env *Env) Value {
 			l, r := leftFn(env), rightFn(env)
 			if l.IsInt() && r.IsInt() {
 				return IntValue(l.i | r.i)
 			}
 			panic(evalErrorf(0, 0, "| requires int operands, got %s and %s", kindName(l), kindName(r)))
-		}, nil
+		}), nil
 	}
 	return c.compileExclusiveOr(ctx.ExclusiveOrExpression().(*ast.ExclusiveOrExpressionContext))
 }
@@ -438,13 +467,14 @@ func (c *compiler) compileExclusiveOr(ctx *ast.ExclusiveOrExpressionContext) (fu
 		if err != nil {
 			return nil, err
 		}
-		return func(env *Env) Value {
+		line, col := posOf(ctx)
+		return withPos(line, col, func(env *Env) Value {
 			l, r := leftFn(env), rightFn(env)
 			if l.IsInt() && r.IsInt() {
 				return IntValue(l.i ^ r.i)
 			}
 			panic(evalErrorf(0, 0, "^ requires int operands, got %s and %s", kindName(l), kindName(r)))
-		}, nil
+		}), nil
 	}
 	return c.compileAnd(ctx.AndExpression().(*ast.AndExpressionContext))
 }
@@ -459,13 +489,14 @@ func (c *compiler) compileAnd(ctx *ast.AndExpressionContext) (func(*Env) Value, 
 		if err != nil {
 			return nil, err
 		}
-		return func(env *Env) Value {
+		line, col := posOf(ctx)
+		return withPos(line, col, func(env *Env) Value {
 			l, r := leftFn(env), rightFn(env)
 			if l.IsInt() && r.IsInt() {
 				return IntValue(l.i & r.i)
 			}
 			panic(evalErrorf(0, 0, "& requires int operands, got %s and %s", kindName(l), kindName(r)))
-		}, nil
+		}), nil
 	}
 	return c.compileEquality(ctx.EqualityExpression().(*ast.EqualityExpressionContext))
 }
@@ -502,7 +533,8 @@ func (c *compiler) compileRelational(ctx *ast.RelationalExpressionContext) (func
 		if err != nil {
 			return nil, err
 		}
-		return func(env *Env) Value {
+		line, col := posOf(ctx)
+		return withPos(line, col, func(env *Env) Value {
 			l, r := leftFn(env), rightFn(env)
 			switch {
 			case ctx.LT() != nil:
@@ -517,7 +549,7 @@ func (c *compiler) compileRelational(ctx *ast.RelationalExpressionContext) (func
 				return BoolValue(inValues(l, r))
 			}
 			return BoolValue(false)
-		}, nil
+		}), nil
 	}
 	return c.compileShift(ctx.ShiftExpression().(*ast.ShiftExpressionContext))
 }
@@ -533,7 +565,8 @@ func (c *compiler) compileShift(ctx *ast.ShiftExpressionContext) (func(*Env) Val
 			return nil, err
 		}
 		isLeft := ctx.LSHIFT() != nil
-		return func(env *Env) Value {
+		line, col := posOf(ctx)
+		return withPos(line, col, func(env *Env) Value {
 			l, r := leftFn(env), rightFn(env)
 			if l.IsInt() && r.IsInt() {
 				if isLeft {
@@ -542,7 +575,7 @@ func (c *compiler) compileShift(ctx *ast.ShiftExpressionContext) (func(*Env) Val
 				return IntValue(l.i >> uint(r.i))
 			}
 			panic(evalErrorf(0, 0, "shift requires int operands, got %s and %s", kindName(l), kindName(r)))
-		}, nil
+		}), nil
 	}
 	return c.compileAdditive(ctx.AdditiveExpression().(*ast.AdditiveExpressionContext))
 }
@@ -558,13 +591,14 @@ func (c *compiler) compileAdditive(ctx *ast.AdditiveExpressionContext) (func(*En
 			return nil, err
 		}
 		isAdd := ctx.ADD() != nil
-		return func(env *Env) Value {
+		line, col := posOf(ctx)
+		return withPos(line, col, func(env *Env) Value {
 			l, r := leftFn(env), rightFn(env)
 			if isAdd {
 				return addValues(l, r)
 			}
 			return subValues(l, r)
-		}, nil
+		}), nil
 	}
 	return c.compileMultiplicative(ctx.MultiplicativeExpression().(*ast.MultiplicativeExpressionContext))
 }
@@ -579,7 +613,8 @@ func (c *compiler) compileMultiplicative(ctx *ast.MultiplicativeExpressionContex
 		if err != nil {
 			return nil, err
 		}
-		return func(env *Env) Value {
+		line, col := posOf(ctx)
+		return withPos(line, col, func(env *Env) Value {
 			l, r := leftFn(env), rightFn(env)
 			switch {
 			case ctx.MUL() != nil:
@@ -590,7 +625,7 @@ func (c *compiler) compileMultiplicative(ctx *ast.MultiplicativeExpressionContex
 				return modValues(l, r)
 			}
 			panic(evalErrorf(0, 0, "unreachable multiplicative"))
-		}, nil
+		}), nil
 	}
 	return c.compileUnary(ctx.UnaryExpression().(*ast.UnaryExpressionContext))
 }
@@ -602,7 +637,8 @@ func (c *compiler) compileUnary(ctx *ast.UnaryExpressionContext) (func(*Env) Val
 			return nil, err
 		}
 		isSub := ctx.SUB() != nil
-		return func(env *Env) Value {
+		line, col := posOf(ctx)
+		return withPos(line, col, func(env *Env) Value {
 			v := innerFn(env)
 			if isSub {
 				if v.IsInt() {
@@ -618,7 +654,7 @@ func (c *compiler) compileUnary(ctx *ast.UnaryExpressionContext) (func(*Env) Val
 				return v
 			}
 			panic(evalErrorf(0, 0, "unary + requires numeric operand, got %s", kindName(v)))
-		}, nil
+		}), nil
 	}
 	// unaryExpressionNotPlusMinus
 	un := ctx.UnaryExpressionNotPlusMinus().(*ast.UnaryExpressionNotPlusMinusContext)
@@ -658,6 +694,7 @@ func (c *compiler) compilePostfix(ctx *ast.PostfixExpressionContext) (func(*Env)
 	if err != nil {
 		return nil, err
 	}
+	line, col := posOf(ctx)
 
 	switch {
 	case ctx.LBRACK() != nil: // 下标访问 base[index]
@@ -665,7 +702,7 @@ func (c *compiler) compilePostfix(ctx *ast.PostfixExpressionContext) (func(*Env)
 		if err != nil {
 			return nil, err
 		}
-		return func(env *Env) Value {
+		return withPos(line, col, func(env *Env) Value {
 			base := leftFn(env)
 			idx := idxFn(env)
 			switch {
@@ -690,14 +727,14 @@ func (c *compiler) compilePostfix(ctx *ast.PostfixExpressionContext) (func(*Env)
 				return StringValue(string(r[i]))
 			}
 			panic(evalErrorf(0, 0, "cannot index %s", kindName(base)))
-		}, nil
+		}), nil
 	case ctx.DOT() != nil && ctx.LPAREN() != nil: // 方法调用 obj.method(args)
 		name := ctx.Identifier().GetText()
 		argFns, err := c.compileArgList(ctx.ArgumentList())
 		if err != nil {
 			return nil, err
 		}
-		return func(env *Env) Value {
+		return withPos(line, col, func(env *Env) Value {
 			base := leftFn(env)
 			args := make([]Value, len(argFns))
 			for i, fn := range argFns {
@@ -715,10 +752,10 @@ func (c *compiler) compilePostfix(ctx *ast.PostfixExpressionContext) (func(*Env)
 				return callValueWithReceiver(method, base, args)
 			}
 			panic(evalErrorf(0, 0, "cannot call method '%s' on %s", name, kindName(base)))
-		}, nil
+		}), nil
 	case ctx.DOT() != nil: // 属性访问 base.field
 		name := ctx.Identifier().GetText()
-		return func(env *Env) Value {
+		return withPos(line, col, func(env *Env) Value {
 			base := leftFn(env)
 			if base.IsMap() {
 				v, ok := base.m[name]
@@ -728,7 +765,7 @@ func (c *compiler) compilePostfix(ctx *ast.PostfixExpressionContext) (func(*Env)
 				return v
 			}
 			panic(evalErrorf(0, 0, "cannot access field '%s' on %s", name, kindName(base)))
-		}, nil
+		}), nil
 	case ctx.LPAREN() != nil: // 函数调用 f(args)
 		argFns, err := c.compileArgList(ctx.ArgumentList())
 		if err != nil {
@@ -745,7 +782,7 @@ func (c *compiler) compilePostfix(ctx *ast.PostfixExpressionContext) (func(*Env)
 			if err != nil {
 				return nil, err
 			}
-			return func(env *Env) Value {
+			return withPos(line, col, func(env *Env) Value {
 				base := baseFn(env)
 				args := make([]Value, len(argFns))
 				for i, fn := range argFns {
@@ -763,7 +800,7 @@ func (c *compiler) compilePostfix(ctx *ast.PostfixExpressionContext) (func(*Env)
 				}
 				// 调用点注入 this：方法体内 this / 隐式字段访问都指向 base
 				return callValueWithReceiver(method, base, args)
-			}, nil
+			}), nil
 		case left.LBRACK() != nil && left.PostfixExpression() != nil: // m["f"](args) / lst[i](args)
 			baseFn, err := c.compilePostfix(left.PostfixExpression().(*ast.PostfixExpressionContext))
 			if err != nil {
@@ -773,7 +810,7 @@ func (c *compiler) compilePostfix(ctx *ast.PostfixExpressionContext) (func(*Env)
 			if err != nil {
 				return nil, err
 			}
-			return func(env *Env) Value {
+			return withPos(line, col, func(env *Env) Value {
 				base := baseFn(env)
 				idx := idxFn(env)
 				args := make([]Value, len(argFns))
@@ -798,16 +835,16 @@ func (c *compiler) compilePostfix(ctx *ast.PostfixExpressionContext) (func(*Env)
 					panic(evalErrorf(0, 0, "cannot index %s", kindName(base)))
 				}
 				return callValueWithReceiver(callee, base, args)
-			}, nil
+			}), nil
 		}
-		return func(env *Env) Value {
+		return withPos(line, col, func(env *Env) Value {
 			callee := leftFn(env)
 			args := make([]Value, len(argFns))
 			for i, fn := range argFns {
 				args[i] = fn(env)
 			}
 			return callValue(callee, args)
-		}, nil
+		}), nil
 	}
 	return nil, &CompileError{Msg: "unsupported postfix expression"}
 }
