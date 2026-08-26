@@ -145,9 +145,9 @@ func ruleexprparserParserInit() {
 		123, 121, 1, 0, 0, 0, 124, 127, 1, 0, 0, 0, 125, 123, 1, 0, 0, 0, 125,
 		126, 1, 0, 0, 0, 126, 13, 1, 0, 0, 0, 127, 125, 1, 0, 0, 0, 128, 129, 5,
 		49, 0, 0, 129, 130, 5, 26, 0, 0, 130, 131, 3, 16, 8, 0, 131, 15, 1, 0,
-		0, 0, 132, 133, 3, 32, 16, 0, 133, 17, 1, 0, 0, 0, 134, 143, 3, 2, 1, 0,
-		135, 143, 3, 22, 11, 0, 136, 143, 3, 24, 12, 0, 137, 143, 3, 26, 13, 0,
-		138, 143, 3, 28, 14, 0, 139, 143, 3, 20, 10, 0, 140, 143, 3, 8, 4, 0, 141,
+		0, 0, 132, 133, 3, 32, 16, 0, 133, 17, 1, 0, 0, 0, 134, 143, 3, 20, 10,
+		0, 135, 143, 3, 2, 1, 0, 136, 143, 3, 22, 11, 0, 137, 143, 3, 24, 12, 0,
+		138, 143, 3, 26, 13, 0, 139, 143, 3, 28, 14, 0, 140, 143, 3, 8, 4, 0, 141,
 		143, 5, 22, 0, 0, 142, 134, 1, 0, 0, 0, 142, 135, 1, 0, 0, 0, 142, 136,
 		1, 0, 0, 0, 142, 137, 1, 0, 0, 0, 142, 138, 1, 0, 0, 0, 142, 139, 1, 0,
 		0, 0, 142, 140, 1, 0, 0, 0, 142, 141, 1, 0, 0, 0, 143, 19, 1, 0, 0, 0,
@@ -1754,12 +1754,12 @@ type IStatementContext interface {
 	GetParser() antlr.Parser
 
 	// Getter signatures
+	ExpressionStatement() IExpressionStatementContext
 	Block() IBlockContext
 	IfStatement() IIfStatementContext
 	ForStatement() IForStatementContext
 	BreakStatement() IBreakStatementContext
 	ContinueStatement() IContinueStatementContext
-	ExpressionStatement() IExpressionStatementContext
 	LocalVariableDeclarationStatement() ILocalVariableDeclarationStatementContext
 	SEMI() antlr.TerminalNode
 
@@ -1798,6 +1798,22 @@ func NewStatementContext(parser antlr.Parser, parent antlr.ParserRuleContext, in
 }
 
 func (s *StatementContext) GetParser() antlr.Parser { return s.parser }
+
+func (s *StatementContext) ExpressionStatement() IExpressionStatementContext {
+	var t antlr.RuleContext
+	for _, ctx := range s.GetChildren() {
+		if _, ok := ctx.(IExpressionStatementContext); ok {
+			t = ctx.(antlr.RuleContext)
+			break
+		}
+	}
+
+	if t == nil {
+		return nil
+	}
+
+	return t.(IExpressionStatementContext)
+}
 
 func (s *StatementContext) Block() IBlockContext {
 	var t antlr.RuleContext
@@ -1879,22 +1895,6 @@ func (s *StatementContext) ContinueStatement() IContinueStatementContext {
 	return t.(IContinueStatementContext)
 }
 
-func (s *StatementContext) ExpressionStatement() IExpressionStatementContext {
-	var t antlr.RuleContext
-	for _, ctx := range s.GetChildren() {
-		if _, ok := ctx.(IExpressionStatementContext); ok {
-			t = ctx.(antlr.RuleContext)
-			break
-		}
-	}
-
-	if t == nil {
-		return nil
-	}
-
-	return t.(IExpressionStatementContext)
-}
-
 func (s *StatementContext) LocalVariableDeclarationStatement() ILocalVariableDeclarationStatementContext {
 	var t antlr.RuleContext
 	for _, ctx := range s.GetChildren() {
@@ -1959,42 +1959,42 @@ func (p *RuleExprParser) Statement() (localctx IStatementContext) {
 		p.EnterOuterAlt(localctx, 1)
 		{
 			p.SetState(134)
-			p.Block()
+			p.ExpressionStatement()
 		}
 
 	case 2:
 		p.EnterOuterAlt(localctx, 2)
 		{
 			p.SetState(135)
-			p.IfStatement()
+			p.Block()
 		}
 
 	case 3:
 		p.EnterOuterAlt(localctx, 3)
 		{
 			p.SetState(136)
-			p.ForStatement()
+			p.IfStatement()
 		}
 
 	case 4:
 		p.EnterOuterAlt(localctx, 4)
 		{
 			p.SetState(137)
-			p.BreakStatement()
+			p.ForStatement()
 		}
 
 	case 5:
 		p.EnterOuterAlt(localctx, 5)
 		{
 			p.SetState(138)
-			p.ContinueStatement()
+			p.BreakStatement()
 		}
 
 	case 6:
 		p.EnterOuterAlt(localctx, 6)
 		{
 			p.SetState(139)
-			p.ExpressionStatement()
+			p.ContinueStatement()
 		}
 
 	case 7:

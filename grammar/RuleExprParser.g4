@@ -57,13 +57,19 @@ variableInitializer
     : expression
     ;
 
+// statement 备选排序：expressionStatement 在 block 之前。语句级 {} 同时匹配
+// 空 block 与空 Map 字面量，歧义按备选顺序消解——排在前面的赢。若 block 在前，
+// `{}["k"]` 会断成两条语句（空 block + 列表字面量）静默返回 ["k"]，且裸 `{}`
+// 求值为 null 而非空 Map。优先按表达式解析后：`{}` 是 Map 字面量；无尾表达式的
+// `{ var x = 1 }` 仍只有 block 可匹配，不受影响。if/for 等关键字开头的语句
+// 无法作为表达式解析，自然落到各自备选。
 statement
-    : block
+    : expressionStatement
+    | block
     | ifStatement
     | forStatement
     | breakStatement
     | continueStatement
-    | expressionStatement
     | localVariableDeclarationStatement
     | SEMI
     ;

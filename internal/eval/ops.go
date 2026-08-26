@@ -41,6 +41,11 @@ func divValues(l, r Value) Value {
 		return IntValue(l.i / r.i)
 	}
 	if l.IsFloat() || r.IsFloat() {
+		// 浮点除零同样报错而非返回 ±Inf/NaN——静默的非有限值会流入
+		// 后续比较与规则结果，与语言"显式失败"的整体取向相悖。
+		if toFloat(r) == 0 {
+			panic(evalErrorf(0, 0, "division by zero"))
+		}
 		return FloatValue(toFloat(l) / toFloat(r))
 	}
 	panic(evalErrorf(0, 0, "cannot divide %s by %s", kindName(l), kindName(r)))

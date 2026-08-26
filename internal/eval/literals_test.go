@@ -58,6 +58,21 @@ func TestLiterals(t *testing.T) {
 	t.Run("map", func(t *testing.T) {
 		assertEval(t, `{"a": 1, "b": 2}`, map[string]interface{}{"a": int64(1), "b": int64(2)})
 	})
+	t.Run("map_empty_literal_at_statement_level", func(t *testing.T) {
+		// 回归:语句级 {} 此前被解析为空 block,导致 {} 整体求值为 null、
+		// {}["k"] 断成两条语句静默返回 ["k"]。空花括号优先按 Map 字面量解析。
+		assertEval(t, "{}", map[string]interface{}{})
+		assertEval(t, `{}["k"]`, nil)
+		assertEval(t, `{}.missing`, nil)
+		assertEval(t, `{}["k"] == null`, true)
+		assertEval(t, "len({})", int64(0))
+	})
+	t.Run("map_postfix_regression", func(t *testing.T) {
+		// 非空 Map 字面量后缀访问不受语句级消歧影响
+		assertEval(t, `{"a": 1}["a"]`, int64(1))
+		assertEval(t, `{"a": 1}.a`, int64(1))
+		assertEval(t, `{"a": {"b": 2}}["a"]["b"]`, int64(2))
+	})
 	t.Run("map_bare_identifier_key", func(t *testing.T) {
 		// {name: name} 简写：key 取标识符文本，value 取同名变量
 		assertEvalCtx(t, `{name: name}`, map[string]Value{"name": StringValue("alice")},

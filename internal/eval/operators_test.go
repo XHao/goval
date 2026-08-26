@@ -15,6 +15,14 @@ func TestOperators(t *testing.T) {
 		assertEval(t, "10.0 / 4.0", 2.5)
 		assertEval(t, "3.5 - 1.0", 2.5)
 	})
+	t.Run("float_division_by_zero", func(t *testing.T) {
+		// 回归:浮点除零此前返回 ±Inf/NaN 静默流入比较与规则结果;
+		// 文档语义是除零一律 runtime error(与整数路径一致)。
+		assertEvalError(t, "1.0 / 0", "division by zero")
+		assertEvalError(t, "1 / 0.0", "division by zero")
+		assertEvalError(t, "-1.0 / 0.0", "division by zero")
+		assertEvalError(t, "0.0 / 0.0", "division by zero")
+	})
 	t.Run("string_concat", func(t *testing.T) {
 		assertEval(t, `"foo" + "bar"`, "foobar")
 	})

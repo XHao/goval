@@ -62,6 +62,11 @@ func TestControlFlow(t *testing.T) {
 		// continue 跳过本轮：不加 2
 		assertEval(t, "var s = 0; for x in [1,2,3] { if (x == 2) { continue }; s = s + x }; s", int64(4))
 	})
+	t.Run("for_empty_body", func(t *testing.T) {
+		// 空循环体 {}:for 体走 block 规则(blockStatements 可选),
+		// 不受语句级 {} 消歧改动影响
+		assertEval(t, `for x in [1, 2, 3] {}; 0`, int64(0))
+	})
 	t.Run("for_iteration_via_reduce", func(t *testing.T) {
 		// 间接验证 for-in 遍历顺序：用 reduce 累加（reduce 内部处理累加）
 		assertEval(t, "reduce([1, 2, 3, 4], 0, (acc, x) -> acc + x)", int64(10))
